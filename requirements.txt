@@ -1,0 +1,8 @@
+# Fixlane WorkBrief Processor - Requirements
+# Install with: pip install -r requirements.txt
+
+polars>=0.20.0
+pandas>=2.0.0
+PyQt6>=6.4.0
+pathlib
+logging
