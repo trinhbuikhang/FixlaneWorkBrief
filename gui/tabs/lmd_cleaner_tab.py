@@ -30,6 +30,17 @@ class LMDCleanerTab(QWidget):
         layout.setSpacing(15)
         layout.setSpacing(15)
 
+        # Description
+        desc_label = QLabel("This tool cleans LMD data by applying the following filters:\n"
+                           "• Remove rows with empty rawSlope170 and rawSlope270\n"
+                           "• Remove rows where trailingFactor < 0.15\n"
+                           "• Remove rows where abs(tsdSlopeMinY)/tsdSlopeMaxY < 0.15\n"
+                           "• Remove rows where Lane contains 'SK'\n"
+                           "• Remove rows where Ignore is true")
+        desc_label.setWordWrap(True)
+        desc_label.setObjectName("descriptionLabel")
+        layout.addWidget(desc_label)
+
         # Input file section
         input_layout = QHBoxLayout()
         input_layout.setSpacing(10)

@@ -71,14 +71,14 @@ class LaneFixTab(QWidget):
         layout.addWidget(mode_group)
 
         # File inputs
-        files_group = QGroupBox("Input Files")
+        files_group = QGroupBox("File Selection")
         files_layout = QVBoxLayout()
 
         # Combined LMD file (always required)
         lmd_layout = QHBoxLayout()
         lmd_layout.setSpacing(10)
         lmd_label = QLabel("Combined LMD:")
-        lmd_label.setFixedWidth(120)
+        lmd_label.setFixedWidth(140)
         lmd_layout.addWidget(lmd_label)
 
         self.lmd_edit = QLineEdit()
@@ -96,7 +96,7 @@ class LaneFixTab(QWidget):
         lane_layout = QHBoxLayout()
         lane_layout.setSpacing(10)
         lane_label = QLabel("Lane Fixes:")
-        lane_label.setFixedWidth(120)
+        lane_label.setFixedWidth(140)
         lane_layout.addWidget(lane_label)
 
         self.lane_edit = QLineEdit()
@@ -114,7 +114,7 @@ class LaneFixTab(QWidget):
         workbrief_layout = QHBoxLayout()
         workbrief_layout.setSpacing(10)
         workbrief_label = QLabel("Workbrief:")
-        workbrief_label.setFixedWidth(120)
+        workbrief_label.setFixedWidth(140)
         workbrief_layout.addWidget(workbrief_label)
 
         self.workbrief_edit = QLineEdit()
@@ -128,15 +128,12 @@ class LaneFixTab(QWidget):
         workbrief_layout.addWidget(self.workbrief_btn)
         files_layout.addLayout(workbrief_layout)
 
-        files_group.setLayout(files_layout)
-        layout.addWidget(files_group)
-
         # Output file section
         output_layout = QHBoxLayout()
         output_layout.setSpacing(10)
 
         output_label = QLabel("Output:")
-        output_label.setFixedWidth(80)
+        output_label.setFixedWidth(140)
         output_layout.addWidget(output_label)
 
         self.output_edit = QLineEdit()
@@ -148,8 +145,10 @@ class LaneFixTab(QWidget):
         self.output_btn.setFixedWidth(100)
         self.output_btn.clicked.connect(self.select_output)
         output_layout.addWidget(self.output_btn)
+        files_layout.addLayout(output_layout)
 
-        layout.addLayout(output_layout)
+        files_group.setLayout(files_layout)
+        layout.addWidget(files_group)
 
         # Process button
         self.process_btn = QPushButton("Process Lane Fixes")
@@ -341,10 +340,8 @@ class LaneFixTab(QWidget):
                 processor = PolarsWorkbriefProcessor(progress_callback)
                 processed_df = processor.process_in_memory(lmd_df, workbrief_file)
                 if processed_df is not None:
-                    # Convert all columns to string to preserve formatting
-                    processed_df = processed_df.with_columns([
-                        pl.col(col).cast(pl.Utf8).alias(col) for col in processed_df.columns
-                    ])
+                    # Prepare data for CSV output with proper boolean formatting
+                    processed_df = processor._prepare_for_csv_output(processed_df)
                     processed_df.write_csv(output_file)
                     result = output_file
                     logging.info("Workbrief processing completed")

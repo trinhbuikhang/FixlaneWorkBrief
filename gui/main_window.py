@@ -11,7 +11,7 @@ class DataCleanerApp(QWidget):
         self.initUI()
 
     def initUI(self):
-        self.setWindowTitle("Data Cleaner - LMD Processing Tool")
+        self.setWindowTitle("Data Processing Tool")
         self.setGeometry(100, 100, 900, 700)
 
         # Apply the modern stylesheet
@@ -37,7 +37,7 @@ class DataCleanerApp(QWidget):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    app.setApplicationName("Data Cleaner")
+    app.setApplicationName("Data Processing Tool")
     app.setApplicationVersion("1.0")
     app.setOrganizationName("PyDeveloper")
 

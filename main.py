@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Data Cleaner Application
+Data Processing Tool
 
 A PyQt6 application for cleaning binviewer CSV data based on specific criteria.
 """
@@ -11,7 +11,7 @@ from gui.main_window import DataCleanerApp
 
 def main():
     app = QApplication(sys.argv)
-    app.setApplicationName("Data Cleaner")
+    app.setApplicationName("Data Processing Tool")
     app.setApplicationVersion("1.0")
     app.setOrganizationName("PyDeveloper")
 
