@@ -3,6 +3,8 @@ from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QTabWidget
 from PyQt6.QtCore import Qt
 from gui.tabs.lmd_cleaner_tab import LMDCleanerTab
 from gui.tabs.laneFix_tab import LaneFixTab
+from gui.tabs.client_feedback_tab import ClientFeedbackTab
+from gui.tabs.add_columns_tab import AddColumnsTab
 from gui.styles import apply_stylesheet, MAIN_STYLESHEET
 
 class DataCleanerApp(QWidget):
@@ -32,6 +34,14 @@ class DataCleanerApp(QWidget):
         # Add Lane Fix tab
         self.lane_fix_tab = LaneFixTab()
         self.tab_widget.addTab(self.lane_fix_tab, "Lane Fix")
+
+        # Add Client Feedback tab
+        self.client_feedback_tab = ClientFeedbackTab()
+        self.tab_widget.addTab(self.client_feedback_tab, "Client Feedback")
+
+        # Add Add Columns tab
+        self.add_columns_tab = AddColumnsTab()
+        self.tab_widget.addTab(self.add_columns_tab, "Add Columns")
 
         self.setLayout(layout)
 

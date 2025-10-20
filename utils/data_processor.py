@@ -23,31 +23,31 @@ def process_data(input_file: str, output_file: str) -> None:
         original_count = len(df)
         logging.info(f"Loaded {original_count} rows from {input_file}")
 
-        # Criterion 1: Remove rows where both 'rawSlope170' and 'rawSlope270' are empty or NaN
+        # Criterion 1: Remove rows where both 'RawSlope170' and 'rawSlope270' are empty or NaN
         removed1 = 0
-        if 'rawSlope170' in df.columns and 'rawSlope270' in df.columns:
+        if 'RawSlope170' in df.columns and 'RawSlope270' in df.columns:
             condition1 = (
-                (df['rawSlope170'].is_null() | (df['rawSlope170'] == "")) &
-                (df['rawSlope270'].is_null() | (df['rawSlope270'] == ""))
+                (df['RawSlope170'].is_null() | (df['RawSlope170'] == "")) &
+                (df['RawSlope270'].is_null() | (df['RawSlope270'] == ""))
             )
             removed1 = df.filter(condition1).height
             df = df.filter(~condition1)
-            logging.info(f"Removed {removed1} rows where both rawSlope170 and rawSlope270 are empty or NaN")
+            logging.info(f"Removed {removed1} rows where both RawSlope170 and RawSlope270 are empty or NaN")
         else:
-            logging.info("Columns 'rawSlope170' and/or 'rawSlope270' not found, skipping slope filtering")
+            logging.info("Columns 'RawSlope170' and/or 'RawSlope270' not found, skipping slope filtering")
 
         # Criterion 2: Remove rows where 'trailingFactor' < 0.15
         removed2 = 0
-        if 'trailingFactor' in df.columns:
+        if 'TrailingFactor' in df.columns:
             try:
-                condition2 = df['trailingFactor'].cast(pl.Float64, strict=False) < 0.15
+                condition2 = df['TrailingFactor'].cast(pl.Float64, strict=False) < 0.15
                 removed2 = df.filter(condition2).height
                 df = df.filter(~condition2)
-                logging.info(f"Removed {removed2} rows where trailingFactor < 0.15")
+                logging.info(f"Removed {removed2} rows where TrailingFactor < 0.15")
             except Exception as e:
-                logging.warning(f"Could not process trailingFactor as number: {e}, skipping")
+                logging.warning(f"Could not process TrailingFactor as number: {e}, skipping")
         else:
-            logging.info("Column 'trailingFactor' not found, skipping trailing factor filtering")
+            logging.info("Column 'TrailingFactor' not found, skipping trailing factor filtering")
 
         # Criterion 3: Remove rows where Abs('tsdSlopeMinY') / 'tsdSlopeMaxY' < 0.15
         removed3 = 0
@@ -115,7 +115,7 @@ def process_data(input_file: str, output_file: str) -> None:
         while lines and lines[-1].strip() == '':
             lines.pop()
         
-        cleaned_content = '\n'.join(lines) + '\n'  # Add back one newline
+        cleaned_content = '\n'.join(lines)  # No trailing newline
         
         with open(output_file, 'w', encoding='utf-8') as f:
             f.write(cleaned_content)
