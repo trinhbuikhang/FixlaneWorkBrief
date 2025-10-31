@@ -114,14 +114,39 @@ class ClientFeedbackTab(QWidget):
         # Column selection
         columns_group = QGroupBox("Client Feedback Columns")
         columns_layout = QVBoxLayout()
-        
+
         columns_label = QLabel("Available columns in client feedback file:")
         columns_layout.addWidget(columns_label)
-        
+
         self.columns_list = QListWidget()
-        self.columns_list.setMaximumHeight(150)
+        self.columns_list.setMaximumHeight(200)
+        # Ensure proper styling and behavior for checkboxes
+        self.columns_list.setSelectionMode(QListWidget.SelectionMode.NoSelection)
+        self.columns_list.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        # Ensure proper styling for checkboxes
+        self.columns_list.setStyleSheet("""
+            QListWidget::item {
+                padding: 5px;
+                border-bottom: 1px solid #ddd;
+            }
+            QListWidget::item:hover {
+                background-color: #f0f0f0;
+            }
+            QListWidget::indicator {
+                width: 15px;
+                height: 15px;
+            }
+            QListWidget::indicator:unchecked {
+                border: 2px solid #999;
+                background-color: white;
+            }
+            QListWidget::indicator:checked {
+                border: 2px solid #0078d4;
+                background-color: #0078d4;
+            }
+        """)
         columns_layout.addWidget(self.columns_list)
-        
+
         columns_group.setLayout(columns_layout)
         layout.addWidget(columns_group)
 
@@ -155,18 +180,22 @@ class ClientFeedbackTab(QWidget):
             if not os.path.exists(file_path):
                 self.columns_list.clear()
                 return
-            
+
             # Read the first row to get column names, ignore errors
             df = pl.read_csv(file_path, n_rows=1, ignore_errors=True)
             columns = df.columns
-            
+
             self.columns_list.clear()
             for col in columns:
                 item = QListWidgetItem(col)
-                item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+                # Try different approach for checkbox flags
+                item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsUserCheckable)
                 item.setCheckState(Qt.CheckState.Unchecked)
+                # Set a reasonable size hint for the item
+                from PyQt6.QtCore import QSize
+                item.setSizeHint(QSize(200, 25))
                 self.columns_list.addItem(item)
-                
+
         except Exception as e:
             self.columns_list.clear()
             QMessageBox.warning(self, "Error", f"Failed to load columns: {str(e)}")

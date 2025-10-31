@@ -238,6 +238,9 @@ class ClientFeedbackProcessor:
                                       'Cement %', 'Lime %']
             if extra_columns:
                 feedback_columns_to_add.extend(extra_columns)
+            
+            # Remove duplicates while preserving order
+            feedback_columns_to_add = list(dict.fromkeys(feedback_columns_to_add))
 
             # Process feedback data
             feedback_processed = feedback_df.with_columns([
@@ -297,23 +300,23 @@ class ClientFeedbackProcessor:
             # Sort by original row index to maintain exact input order
             final_df = final_df.sort('_row_idx')
 
-            # IMPORTANT: Don't fill nulls - keep them as null for empty CSV cells
-            # Add feedback columns with null values for rows without matches
+            # Update existing columns with feedback values where available
             for col in feedback_columns_to_add:
-                if col not in final_df.columns:
+                if col in original_columns:
+                    final_df = final_df.with_columns([
+                        pl.coalesce([pl.col(col + '_right'), pl.col(col)]).alias(col)
+                    ])
+
+            # Add feedback columns with null values for rows without matches (only for new columns)
+            for col in feedback_columns_to_add:
+                if col not in original_columns and col not in final_df.columns:
                     final_df = final_df.with_columns([
                         pl.lit(None).alias(col)
                     ])
 
-            # Select final columns in original order plus new columns
-            select_exprs = []
-            for col in original_columns:
-                select_exprs.append(pl.col(col))
-            
-            for col in feedback_columns_to_add:
-                select_exprs.append(pl.col(col))
-
-            final_df = final_df.select(select_exprs)
+            # Select final columns in original order plus new feedback columns
+            select_cols = original_columns + [col for col in feedback_columns_to_add if col not in original_columns]
+            final_df = final_df.select(select_cols)
 
             # Format TestDateUTC if needed
             if 'TestDateUTC' in final_df.columns:
