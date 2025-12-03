@@ -37,7 +37,13 @@ class QTextEditHandler(logging.Handler):
 class LaneFixTab(QWidget):
     def __init__(self):
         super().__init__()
+        self.processing_active = False
         self.initUI()
+    
+    def update_status(self, message):
+        """Safely update status label if it exists"""
+        if self.status_label is not None:
+            self.status_label.setText(message)
 
     def initUI(self):
         layout = QVBoxLayout()
@@ -48,6 +54,12 @@ class LaneFixTab(QWidget):
         title_label = QLabel("Lane Fix Processor")
         title_label.setObjectName("titleLabel")
         layout.addWidget(title_label)
+
+        # Description
+        desc_label = QLabel("This tool processes lane fixes and workbrief data by matching with LMD files and applying corrections.")
+        desc_label.setWordWrap(True)
+        desc_label.setObjectName("descriptionLabel")
+        layout.addWidget(desc_label)
 
         # Processing mode selection
         mode_group = QGroupBox("Processing Mode")
@@ -151,26 +163,25 @@ class LaneFixTab(QWidget):
         layout.addWidget(files_group)
 
         # Process button
-        self.process_btn = QPushButton("Process Lane Fixes")
+        self.process_btn = QPushButton("Process Data")
         self.process_btn.setObjectName("processButton")
-        self.process_btn.clicked.connect(self.process_data)
+        self.process_btn.clicked.connect(self.handle_process_click)
         layout.addWidget(self.process_btn)
 
-        # Progress bar
-        self.progress = QProgressBar()
-        self.progress.setValue(0)
-        layout.addWidget(self.progress)
-
-        # Status label for current operation
-        self.status_label = QLabel("Ready")
-        self.status_label.setObjectName("statusLabel")
-        layout.addWidget(self.status_label)
+        # Status label will be set by main window
+        self.status_label = None
 
         # Log section
         layout.addWidget(QLabel("Processing Log:"))
         self.log_text = QTextEdit()
         self.log_text.setReadOnly(True)
         layout.addWidget(self.log_text)
+
+        # Progress bar - Slim and at bottom
+        self.progress = QProgressBar()
+        self.progress.setValue(0)
+        self.progress.setMaximumHeight(8)  # Make it slim and elegant
+        layout.addWidget(self.progress)
 
         self.setLayout(layout)
 
@@ -244,6 +255,30 @@ class LaneFixTab(QWidget):
         if file_name:
             self.output_edit.setText(file_name)
 
+    def handle_process_click(self):
+        """Handle process button click - start processing or cancel if already running"""
+        if self.processing_active:
+            self.cancel_processing()
+        else:
+            self.process_data()
+
+    def cancel_processing(self):
+        """Cancel the current processing"""
+        if self.processing_active:
+            self.processing_active = False
+            self.reset_process_button()
+            self.progress.setValue(0)
+            self.log_text.append("Processing cancelled by user.")
+            QMessageBox.information(self, "Cancelled", "Processing has been cancelled.")
+
+    def reset_process_button(self):
+        """Reset process button to initial state"""
+        self.process_btn.setText("Process Data")
+        self.process_btn.setObjectName("processButton")
+        self.process_btn.setStyleSheet("")
+        self.process_btn.style().unpolish(self.process_btn)
+        self.process_btn.style().polish(self.process_btn)
+
     def process_data(self):
         lmd_file = self.lmd_edit.text().strip()
         lane_file = self.lane_edit.text().strip()
@@ -288,11 +323,13 @@ class LaneFixTab(QWidget):
 
         self.progress.setValue(0)
         self.log_text.clear()
-        self.status_label.setText("Initializing...")
-        self.process_btn.setEnabled(False)
-
-        mode_text = "Lane Fixes" if mode == 1 else "Workbrief" if mode == 2 else "Complete Processing"
-        self.process_btn.setText(f"Processing {mode_text}...")
+        self.update_status("Initializing...")
+        self.processing_active = True
+        self.process_btn.setText("Cancel")
+        self.process_btn.setObjectName("warningButton")
+        self.process_btn.setStyleSheet("")
+        self.process_btn.style().unpolish(self.process_btn)
+        self.process_btn.style().polish(self.process_btn)
 
         # Set up logging to QTextEdit
         handler = QTextEditHandler(self.log_text)
@@ -300,6 +337,9 @@ class LaneFixTab(QWidget):
         logger = logging.getLogger()
         logger.addHandler(handler)
         logger.setLevel(logging.INFO)
+
+        # Define mode_text for use throughout the method
+        mode_text = "Lane Fixes" if mode == 1 else "Workbrief" if mode == 2 else "Complete Processing"
 
         try:
             self.progress.setValue(10)
@@ -312,11 +352,11 @@ class LaneFixTab(QWidget):
                 if "Progress:" in message:
                     # Extract progress info for status
                     progress_info = message.split(" - ")[0] if " - " in message else message
-                    self.status_label.setText(f"Processing: {progress_info}")
+                    self.update_status(f"Processing: {progress_info}")
                 elif "Status:" in message:
-                    self.status_label.setText(message.replace("Status: ", ""))
+                    self.update_status(message.replace("Status: ", ""))
                 elif any(keyword in message.lower() for keyword in ["starting", "loading", "initializing", "completed", "processing"]):
-                    self.status_label.setText(message)
+                    self.update_status(message)
                 # Only log important messages, not every progress update
                 if "Progress:" not in message and "Processing records:" not in message:
                     self.log_text.append(message)
@@ -356,12 +396,12 @@ class LaneFixTab(QWidget):
 
             if result:
                 self.progress.setValue(100)
-                self.status_label.setText("✅ Complete")
+                self.update_status("✅ Complete")
                 QMessageBox.information(self, "Success", f"{mode_text} completed successfully!")
                 logging.info(f"{mode_text} completed successfully")
             else:
                 self.progress.setValue(0)
-                self.status_label.setText("❌ Failed")
+                self.update_status("❌ Failed")
                 error_msg = f"{mode_text} failed. Check the log for details."
                 QMessageBox.critical(self, "Processing Failed", error_msg)
                 logging.error(error_msg)
@@ -374,12 +414,14 @@ class LaneFixTab(QWidget):
             logging.error(f"Traceback: {traceback.format_exc()}")
             QMessageBox.critical(self, "Processing Error", error_msg)
             self.progress.setValue(0)
-            self.status_label.setText("❌ Error occurred")
+            self.update_status("❌ Error occurred")
 
         finally:
             logger.removeHandler(handler)
-            self.process_btn.setEnabled(True)
+            self.processing_active = False
+            self.reset_process_button()
+            
+            # Define mode_text for error handling
             mode_text = "Lane Fixes" if mode == 1 else "Workbrief" if mode == 2 else "Complete Processing"
-            self.process_btn.setText(f"Process {mode_text}")
             if self.progress.value() != 100 and self.progress.value() != 0:
-                self.status_label.setText("Ready")
+                self.update_status("Ready")

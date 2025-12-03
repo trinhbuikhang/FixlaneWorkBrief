@@ -2,7 +2,7 @@ import sys
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QLineEdit, QPushButton, QFileDialog, QTextEdit,
-    QProgressBar, QMessageBox, QTabWidget
+    QProgressBar, QMessageBox, QTabWidget, QGroupBox
 )
 from PyQt6.QtCore import Qt
 from utils.data_processor import process_data
@@ -22,13 +22,23 @@ class QTextEditHandler(logging.Handler):
 class LMDCleanerTab(QWidget):
     def __init__(self):
         super().__init__()
+        self.processing_active = False
         self.initUI()
+    
+    def update_status(self, message):
+        """Safely update status label if it exists"""
+        if self.status_label is not None:
+            self.status_label.setText(message)
 
     def initUI(self):
         layout = QVBoxLayout()
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(15)
-        layout.setSpacing(15)
+
+        # Title
+        title_label = QLabel("LMD Data Cleaner")
+        title_label.setObjectName("titleLabel")
+        layout.addWidget(title_label)
 
         # Description
         desc_label = QLabel("This tool cleans LMD data by applying the following filters:\n"
@@ -41,13 +51,18 @@ class LMDCleanerTab(QWidget):
         desc_label.setObjectName("descriptionLabel")
         layout.addWidget(desc_label)
 
+        # File Selection GroupBox
+        files_group = QGroupBox("File Selection")
+        files_layout = QVBoxLayout(files_group)
+        files_layout.setSpacing(10)
+
         # Input file section
         input_layout = QHBoxLayout()
         input_layout.setSpacing(10)
 
         # Fixed width label for alignment
         input_label = QLabel("Input:")
-        input_label.setFixedWidth(80)  # Fixed width for consistent alignment
+        input_label.setFixedWidth(140)  # Standardized width for consistency
         input_layout.addWidget(input_label)
 
         self.input_edit = QLineEdit()
@@ -60,7 +75,7 @@ class LMDCleanerTab(QWidget):
         self.input_btn.clicked.connect(self.select_input)
         input_layout.addWidget(self.input_btn)
 
-        layout.addLayout(input_layout)
+        files_layout.addLayout(input_layout)
 
         # Output file section
         output_layout = QHBoxLayout()
@@ -68,7 +83,7 @@ class LMDCleanerTab(QWidget):
 
         # Fixed width label for alignment (same as input)
         output_label = QLabel("Output:")
-        output_label.setFixedWidth(80)  # Same fixed width as input label
+        output_label.setFixedWidth(140)  # Standardized width for consistency
         output_layout.addWidget(output_label)
 
         self.output_edit = QLineEdit()
@@ -81,24 +96,29 @@ class LMDCleanerTab(QWidget):
         self.output_btn.clicked.connect(self.select_output)
         output_layout.addWidget(self.output_btn)
 
-        layout.addLayout(output_layout)
+        files_layout.addLayout(output_layout)
+        layout.addWidget(files_group)
 
         # Process button
         self.process_btn = QPushButton("Process Data")
         self.process_btn.setObjectName("processButton")  # For special styling
-        self.process_btn.clicked.connect(self.process_data)
+        self.process_btn.clicked.connect(self.handle_process_click)
         layout.addWidget(self.process_btn)
 
-        # Progress bar
-        self.progress = QProgressBar()
-        self.progress.setValue(0)
-        layout.addWidget(self.progress)
+        # Status label will be set by main window
+        self.status_label = None
 
         # Log section
         layout.addWidget(QLabel("Processing Log:"))
         self.log_text = QTextEdit()
         self.log_text.setReadOnly(True)
         layout.addWidget(self.log_text)
+
+        # Progress bar - Slim and at bottom
+        self.progress = QProgressBar()
+        self.progress.setValue(0)
+        self.progress.setMaximumHeight(8)  # Make it slim and elegant
+        layout.addWidget(self.progress)
 
         self.setLayout(layout)
 
@@ -120,6 +140,37 @@ class LMDCleanerTab(QWidget):
         if file_name:
             self.output_edit.setText(file_name)
 
+    def handle_process_click(self):
+        """Handle process button click - start processing or cancel if already running"""
+        if self.processing_active:
+            self.cancel_processing()
+        else:
+            self.process_data()
+
+    def cancel_processing(self):
+        """Cancel the current processing"""
+        if self.processing_active:
+            self.processing_active = False
+            self.reset_process_button()
+            self.progress.setValue(0)
+            self.log_text.append("Processing cancelled by user.")
+            QMessageBox.information(self, "Cancelled", "Processing has been cancelled.")
+
+    def reset_process_button(self):
+        """Reset process button to initial state"""
+        self.process_btn.setText("Process Data")
+        self.process_btn.setObjectName("processButton")
+        self.process_btn.setStyleSheet("")
+        self.process_btn.style().unpolish(self.process_btn)
+        self.process_btn.style().polish(self.process_btn)
+
+    def _emit_progress(self, message):
+        """Emit progress message to log"""
+        self.log_text.append(message)
+        # Force UI update to show log immediately
+        from PyQt6.QtWidgets import QApplication
+        QApplication.processEvents()
+
     def process_data(self):
         input_file = self.input_edit.text().strip()
         output_file = self.output_edit.text().strip()
@@ -138,19 +189,29 @@ class LMDCleanerTab(QWidget):
 
         self.progress.setValue(0)
         self.log_text.clear()
-        self.process_btn.setEnabled(False)
-        self.process_btn.setText("Processing...")
+        self.processing_active = True
+        self.process_btn.setText("Cancel")
+        self.process_btn.setObjectName("warningButton")
+        self.process_btn.setStyleSheet("")
+        self.process_btn.style().unpolish(self.process_btn)
+        self.process_btn.style().polish(self.process_btn)
 
         # Set up logging to QTextEdit
+        # Clear any existing handlers to avoid conflicts
+        logger = logging.getLogger()
+        existing_handlers = logger.handlers[:]
+        for handler in existing_handlers:
+            logger.removeHandler(handler)
+        
+        # Add our custom handler
         handler = QTextEditHandler(self.log_text)
         handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
-        logger = logging.getLogger()
         logger.addHandler(handler)
         logger.setLevel(logging.INFO)
 
         try:
             self.progress.setValue(10)
-            process_data(input_file, output_file)
+            process_data(input_file, output_file, self._emit_progress)
             self.progress.setValue(100)
             QMessageBox.information(self, "Success", "Data processing completed successfully!")
 
@@ -160,5 +221,5 @@ class LMDCleanerTab(QWidget):
 
         finally:
             logger.removeHandler(handler)
-            self.process_btn.setEnabled(True)
-            self.process_btn.setText("Process Data")
+            self.processing_active = False
+            self.reset_process_button()

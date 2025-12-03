@@ -84,6 +84,25 @@ class PolarsDataProcessor:
             return False
         return True
 
+    def _remove_duplicate_testdateutc(self, df: pl.DataFrame) -> Tuple[pl.DataFrame, int]:
+        """
+        Remove duplicate TestDateUTC rows, keeping the first occurrence.
+        
+        Args:
+            df: DataFrame to process
+            
+        Returns:
+            Tuple of (processed DataFrame, number of duplicates removed)
+        """
+        if 'TestDateUTC' not in df.columns:
+            return df, 0
+        
+        before_count = len(df)
+        df_unique = df.unique(subset=['TestDateUTC'], keep='first', maintain_order=True)
+        removed_count = before_count - len(df_unique)
+        
+        return df_unique, removed_count
+
     def _preserve_input_row_count(self, df: pl.DataFrame, original_input_count: int, description: str = "") -> pl.DataFrame:
         """
         Ensure output has exactly same number of rows as input by removing only processing-generated duplicates.
@@ -411,6 +430,13 @@ class PolarsLaneFixProcessor(PolarsDataProcessor):
             required_cols = self.config.REQUIRED_COLUMNS['combined_LMD']
             if not self._validate_columns_flexible(df, required_cols, f"combined LMD file '{file_path}'"):
                 return None
+            
+            # Remove duplicate TestDateUTC rows
+            df, removed_duplicates = self._remove_duplicate_testdateutc(df)
+            if removed_duplicates > 0:
+                self._emit_progress(f"Removed {removed_duplicates} duplicate TestDateUTC rows")
+            else:
+                self._emit_progress(f"No duplicate TestDateUTC rows found")
             
             return df
             

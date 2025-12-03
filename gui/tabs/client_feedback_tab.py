@@ -3,12 +3,13 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QLineEdit, QPushButton, QFileDialog, QTextEdit,
     QProgressBar, QMessageBox, QGroupBox, QListWidget,
-    QListWidgetItem, QCheckBox
+    QListWidgetItem, QCheckBox, QFrame, QSplitter
 )
 from PyQt6.QtCore import Qt
 import logging
 import polars as pl
 import os
+from datetime import datetime
 
 try:
     from utils.client_feedback_processor import ClientFeedbackProcessor
@@ -31,7 +32,13 @@ class QTextEditHandler(logging.Handler):
 class ClientFeedbackTab(QWidget):
     def __init__(self):
         super().__init__()
+        self.processing_active = False
         self.initUI()
+    
+    def update_status(self, message):
+        """Safely update status label if it exists"""
+        if self.status_label is not None:
+            self.status_label.setText(message)
 
     def initUI(self):
         layout = QVBoxLayout()
@@ -49,11 +56,12 @@ class ClientFeedbackTab(QWidget):
         desc_label.setObjectName("descriptionLabel")
         layout.addWidget(desc_label)
 
-        # File inputs
+        # File Selection GroupBox
         files_group = QGroupBox("File Selection")
-        files_layout = QVBoxLayout()
+        files_layout = QVBoxLayout(files_group)
+        files_layout.setSpacing(10)
 
-        # Combined LMD file (always required)
+        # Combined LMD file
         lmd_layout = QHBoxLayout()
         lmd_layout.setSpacing(10)
         lmd_label = QLabel("Combined LMD:")
@@ -63,6 +71,7 @@ class ClientFeedbackTab(QWidget):
         self.lmd_edit = QLineEdit()
         self.lmd_edit.setPlaceholderText("Select combined LMD CSV file")
         self.lmd_edit.setMinimumWidth(300)
+        self.lmd_edit.setReadOnly(True)
         lmd_layout.addWidget(self.lmd_edit, 1)
 
         self.lmd_btn = QPushButton("Browse...")
@@ -79,8 +88,9 @@ class ClientFeedbackTab(QWidget):
         feedback_layout.addWidget(feedback_label)
 
         self.feedback_edit = QLineEdit()
-        self.feedback_edit.setText(r"J:\Processing\AT Rehab AWTs\AT Gen Mtce - West CSS - checked_chainage_km.csv")  # Default path
+        self.feedback_edit.setPlaceholderText("Select client feedback CSV file")
         self.feedback_edit.setMinimumWidth(300)
+        self.feedback_edit.setReadOnly(True)
         feedback_layout.addWidget(self.feedback_edit, 1)
 
         self.feedback_btn = QPushButton("Browse...")
@@ -89,125 +99,167 @@ class ClientFeedbackTab(QWidget):
         feedback_layout.addWidget(self.feedback_btn)
         files_layout.addLayout(feedback_layout)
 
-        # Output file section
-        output_layout = QHBoxLayout()
-        output_layout.setSpacing(10)
-
-        output_label = QLabel("Output:")
-        output_label.setFixedWidth(140)
-        output_layout.addWidget(output_label)
-
-        self.output_edit = QLineEdit()
-        self.output_edit.setPlaceholderText("Select where to save processed data")
-        self.output_edit.setMinimumWidth(300)
-        output_layout.addWidget(self.output_edit, 1)
-
-        self.output_btn = QPushButton("Browse...")
-        self.output_btn.setFixedWidth(100)
-        self.output_btn.clicked.connect(self.select_output)
-        output_layout.addWidget(self.output_btn)
-        files_layout.addLayout(output_layout)
-
-        files_group.setLayout(files_layout)
         layout.addWidget(files_group)
 
-        # Column selection
-        columns_group = QGroupBox("Client Feedback Columns")
-        columns_layout = QVBoxLayout()
-
-        columns_label = QLabel("Available columns in client feedback file:")
-        columns_layout.addWidget(columns_label)
-
-        self.columns_list = QListWidget()
-        self.columns_list.setMaximumHeight(200)
-        # Ensure proper styling and behavior for checkboxes
-        self.columns_list.setSelectionMode(QListWidget.SelectionMode.NoSelection)
-        self.columns_list.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        # Ensure proper styling for checkboxes
-        self.columns_list.setStyleSheet("""
-            QListWidget::item {
-                padding: 5px;
-                border-bottom: 1px solid #ddd;
-            }
-            QListWidget::item:hover {
-                background-color: #f0f0f0;
-            }
-            QListWidget::indicator {
-                width: 15px;
-                height: 15px;
-            }
-            QListWidget::indicator:unchecked {
-                border: 2px solid #999;
-                background-color: white;
-            }
-            QListWidget::indicator:checked {
-                border: 2px solid #0078d4;
-                background-color: #0078d4;
-            }
-        """)
-        columns_layout.addWidget(self.columns_list)
-
-        columns_group.setLayout(columns_layout)
-        layout.addWidget(columns_group)
-
-        # Process button
-        self.process_btn = QPushButton("Process Client Feedback")
+        # Process button - Standardized position
+        self.process_btn = QPushButton("Process Data")
         self.process_btn.setObjectName("processButton")
-        self.process_btn.clicked.connect(self.process_data)
+        self.process_btn.clicked.connect(self.handle_process_click)
         layout.addWidget(self.process_btn)
 
-        # Progress bar
-        self.progress = QProgressBar()
-        self.progress.setValue(0)
-        layout.addWidget(self.progress)
+        # Create splitter to split columns list and log
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+        
+        # Left side - Column selection
+        left_widget = QWidget()
+        left_layout = QVBoxLayout(left_widget)
+        left_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Column Selection Group
+        columns_group = QGroupBox("Column Selection")
+        columns_layout = QVBoxLayout()
+        
+        # Controls header
+        controls_layout = QHBoxLayout()
+        columns_header = QLabel("Available Columns")
+        columns_header.setStyleSheet("font-weight: 600; font-size: 13px; color: #323130;")
+        controls_layout.addWidget(columns_header)
+        
+        columns_layout.addLayout(controls_layout)
 
-        # Status label for current operation
-        self.status_label = QLabel("Ready")
-        self.status_label.setObjectName("statusLabel")
-        layout.addWidget(self.status_label)
+        self.columns_list = QListWidget()
+        # Use multi-selection mode like Add Columns tab
+        self.columns_list.setSelectionMode(QListWidget.SelectionMode.MultiSelection)
+        self.columns_list.itemSelectionChanged.connect(self.update_selection_count)
+        columns_layout.addWidget(self.columns_list)
 
-        # Log section
-        layout.addWidget(QLabel("Processing Log:"))
+        # Selection counter
+        self.selection_label = QLabel("No columns available")
+        self.selection_label.setStyleSheet("font-size: 11px; color: #605E5C; padding: 8px;")
+        columns_layout.addWidget(self.selection_label)
+        
+        columns_group.setLayout(columns_layout)
+        left_layout.addWidget(columns_group)
+
+        # Right side - Processing log
+        right_widget = QWidget()
+        right_layout = QVBoxLayout(right_widget)
+        right_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Log Group
+        log_group = QGroupBox("Processing Log")
+        log_layout = QVBoxLayout()
+        
         self.log_text = QTextEdit()
         self.log_text.setReadOnly(True)
-        layout.addWidget(self.log_text)
+        log_layout.addWidget(self.log_text)
+        
+        log_group.setLayout(log_layout)
+        right_layout.addWidget(log_group)
+
+        # Add to splitter with standard proportions (40:60)
+        splitter.addWidget(left_widget)
+        splitter.addWidget(right_widget)
+        splitter.setSizes([320, 480])  # 40% left, 60% right - consistent with Add Columns
+        
+        layout.addWidget(splitter, 1)
+
+        # Progress bar - Slim and at bottom
+        self.progress = QProgressBar()
+        self.progress.setValue(0)
+        self.progress.setMaximumHeight(8)  # Make it slim and elegant
+        layout.addWidget(self.progress)
+
+        # Status label will be set by main window
+        self.status_label = None
 
         self.setLayout(layout)
 
     def load_columns(self, file_path):
-        """Load and display columns from client feedback file."""
+        """Load and display columns from client feedback file with default selections."""
         try:
             if not os.path.exists(file_path):
                 self.columns_list.clear()
+                self.update_selection_count()
                 return
 
             # Read the first row to get column names, ignore errors
             df = pl.read_csv(file_path, n_rows=1, ignore_errors=True)
             columns = df.columns
 
+            # Define standard/default columns that should be pre-selected
+            default_columns = {
+                'Site Description', 'Treatment 2024', 'Treatment 2025', 
+                'Treatment 2026', 'Terminal', 'Foamed Bitumen %', 
+                'Cement %', 'Lime %'
+            }
+            
+            # System columns that should not be included in selection
+            system_columns = {
+                'road_id', 'region_id', 'project_id', 'Road Name',
+                'Start Chainage (km)', 'End Chainage (km)', 'Start Chainage', 'End Chainage'
+            }
+
             self.columns_list.clear()
+            
+            # Add columns and mark default ones as selected
             for col in columns:
-                item = QListWidgetItem(col)
-                # Try different approach for checkbox flags
-                item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsUserCheckable)
-                item.setCheckState(Qt.CheckState.Unchecked)
-                # Set a reasonable size hint for the item
-                from PyQt6.QtCore import QSize
-                item.setSizeHint(QSize(200, 25))
-                self.columns_list.addItem(item)
+                if col not in system_columns:  # Only show non-system columns
+                    item = QListWidgetItem(col)
+                    
+                    # Check if this is a default column
+                    if col in default_columns:
+                        item.setSelected(True)
+                        # Style default columns differently
+                        item.setToolTip(f"Default column: {col}")
+                        # Make default columns bold
+                        font = item.font()
+                        font.setBold(True)
+                        item.setFont(font)
+                    else:
+                        # Style additional columns
+                        item.setToolTip(f"Additional column found in file: {col}")
+                    
+                    self.columns_list.addItem(item)
+            
+            self.update_selection_count()
+            
+            # Show summary in log
+            total_cols = len(columns)
+            system_cols = len([col for col in columns if col in system_columns])
+            available_cols = total_cols - system_cols
+            default_found = len([col for col in columns if col in default_columns and col not in system_columns])
+            additional_found = available_cols - default_found
+            
+            self.log_text.append(f"📋 Feedback file analysis:")
+            self.log_text.append(f"   • Total columns: {total_cols}")
+            self.log_text.append(f"   • System columns (excluded): {system_cols}")
+            self.log_text.append(f"   • Available for selection: {available_cols}")
+            self.log_text.append(f"   • Default columns found: {default_found} (pre-selected)")
+            self.log_text.append(f"   • Additional columns found: {additional_found}")
+            if default_found > 0:
+                self.log_text.append(f"✓ Default columns are highlighted in bold and pre-selected")
+            if additional_found > 0:
+                self.log_text.append(f"💡 You can select additional columns as needed")
 
         except Exception as e:
             self.columns_list.clear()
+            self.update_selection_count()
             QMessageBox.warning(self, "Error", f"Failed to load columns: {str(e)}")
+
+    def update_selection_count(self):
+        """Update the selection count label."""
+        selected_count = len(self.columns_list.selectedItems())
+        total_count = self.columns_list.count()
+        if total_count == 0:
+            self.selection_label.setText("No columns available")
+        else:
+            self.selection_label.setText(f"Selected: {selected_count}/{total_count} columns")
 
     def get_selected_columns(self):
         """Get list of selected columns from the columns list."""
-        selected_columns = []
-        for i in range(self.columns_list.count()):
-            item = self.columns_list.item(i)
-            if item.checkState() == Qt.CheckState.Checked:
-                selected_columns.append(item.text())
-        return selected_columns
+        selected_items = self.columns_list.selectedItems()
+        return [item.text() for item in selected_items]
 
     def _emit_progress(self, message: str, progress: float = None):
         """Emit progress update to GUI."""
@@ -224,10 +276,7 @@ class ClientFeedbackTab(QWidget):
         )
         if file_name:
             self.lmd_edit.setText(file_name)
-            # Auto-suggest output file
-            import os
-            base_name = os.path.splitext(file_name)[0]
-            self.output_edit.setText(f"{base_name}_with_feedback.csv")
+            # File selected - ready for processing (output will be auto-generated)
 
     def select_feedback_file(self):
         file_name, _ = QFileDialog.getOpenFileName(
@@ -237,17 +286,33 @@ class ClientFeedbackTab(QWidget):
             self.feedback_edit.setText(file_name)
             self.load_columns(file_name)
 
-    def select_output(self):
-        file_name, _ = QFileDialog.getSaveFileName(
-            self, "Select Output CSV File", "", "CSV Files (*.csv);;All Files (*)"
-        )
-        if file_name:
-            self.output_edit.setText(file_name)
+    def handle_process_click(self):
+        """Handle process button click - start processing or cancel if already running"""
+        if self.processing_active:
+            self.cancel_processing()
+        else:
+            self.process_data()
+
+    def cancel_processing(self):
+        """Cancel the current processing"""
+        if self.processing_active:
+            self.processing_active = False
+            self.reset_process_button()
+            self.progress.setValue(0)
+            self.log_text.append("Processing cancelled by user.")
+            QMessageBox.information(self, "Cancelled", "Processing has been cancelled.")
+
+    def reset_process_button(self):
+        """Reset process button to initial state"""
+        self.process_btn.setText("Process Data")
+        self.process_btn.setObjectName("processButton")
+        self.process_btn.setStyleSheet("")
+        self.process_btn.style().unpolish(self.process_btn)
+        self.process_btn.style().polish(self.process_btn)
 
     def process_data(self):
         lmd_file = self.lmd_edit.text().strip()
         feedback_file = self.feedback_edit.text().strip()
-        output_file = self.output_edit.text().strip()
 
         # Validate inputs
         if not lmd_file:
@@ -258,9 +323,11 @@ class ClientFeedbackTab(QWidget):
             QMessageBox.warning(self, "Input Required", "Please select a Client Feedback file.")
             return
 
-        if not output_file:
-            QMessageBox.warning(self, "Output Required", "Please specify an output file.")
-            return
+        # Generate output filename automatically (same location as LMD file + suffix)
+        import os
+        lmd_dir = os.path.dirname(lmd_file)
+        lmd_name = os.path.splitext(os.path.basename(lmd_file))[0]
+        output_file = os.path.join(lmd_dir, f"{lmd_name}_with_feedback.csv")
 
         # Check file existence
         if not os.path.exists(lmd_file):
@@ -273,9 +340,17 @@ class ClientFeedbackTab(QWidget):
 
         self.progress.setValue(0)
         self.log_text.clear()
-        self.status_label.setText("Initializing...")
-        self.process_btn.setEnabled(False)
-        self.process_btn.setText("Processing Client Feedback...")
+        self.update_status("Initializing...")
+        self.processing_active = True
+        self.process_btn.setText("Cancel")
+        self.process_btn.setObjectName("warningButton")
+        self.process_btn.setStyleSheet("")
+        self.process_btn.style().unpolish(self.process_btn)
+        self.process_btn.style().polish(self.process_btn)
+
+        # Log the output file location
+        self.log_text.append(f"Output will be saved to: {output_file}")
+        self.log_text.append(f"Processing started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
         # Set up logging to QTextEdit
         handler = QTextEditHandler(self.log_text)
@@ -294,11 +369,11 @@ class ClientFeedbackTab(QWidget):
                 # Update status label with current operation
                 if "Progress:" in message:
                     progress_info = message.split(" - ")[0] if " - " in message else message
-                    self.status_label.setText(f"Processing: {progress_info}")
+                    self.update_status(f"Processing: {progress_info}")
                 elif "Status:" in message:
-                    self.status_label.setText(message.replace("Status: ", ""))
+                    self.update_status(message.replace("Status: ", ""))
                 elif any(keyword in message.lower() for keyword in ["starting", "loading", "initializing", "completed", "processing"]):
-                    self.status_label.setText(message)
+                    self.update_status(message)
                 # Only log important messages, not every progress update
                 if "Progress:" not in message and "Processing records:" not in message:
                     self.log_text.append(message)
@@ -341,12 +416,13 @@ class ClientFeedbackTab(QWidget):
 
             if result:
                 self.progress.setValue(100)
-                self.status_label.setText("✅ Complete")
-                QMessageBox.information(self, "Success", "Client feedback processing completed successfully!")
-                logging.info("Client feedback processing completed successfully")
+                self.update_status("✅ Complete")
+                success_msg = f"Client feedback processing completed successfully!\n\nOutput saved to:\n{output_file}"
+                QMessageBox.information(self, "Success", success_msg)
+                logging.info(f"Client feedback processing completed successfully. Output saved to: {output_file}")
             else:
                 self.progress.setValue(0)
-                self.status_label.setText("❌ Failed")
+                self.update_status("❌ Failed")
                 error_msg = "Client feedback processing failed. Check the log for details."
                 QMessageBox.critical(self, "Processing Failed", error_msg)
                 logging.error(error_msg)
@@ -359,11 +435,11 @@ class ClientFeedbackTab(QWidget):
             logging.error(f"Traceback: {traceback.format_exc()}")
             QMessageBox.critical(self, "Processing Error", error_msg)
             self.progress.setValue(0)
-            self.status_label.setText("❌ Error occurred")
+            self.update_status("❌ Error occurred")
 
         finally:
             logger.removeHandler(handler)
-            self.process_btn.setEnabled(True)
-            self.process_btn.setText("Process Client Feedback")
+            self.processing_active = False
+            self.reset_process_button()
             if self.progress.value() != 100 and self.progress.value() != 0:
-                self.status_label.setText("Ready")
+                self.update_status("Ready")
