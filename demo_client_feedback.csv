@@ -1,0 +1,6 @@
+road_id,region_id,project_id,Road Name,Start Chainage (km),End Chainage (km),Site Description,Treatment 2024,Treatment 2025,Treatment 2026,Terminal,Foamed Bitumen %,Cement %,Lime %,Traffic Volume,Pavement Age,Surface Condition,Priority,Budget Estimate,Contractor
+R001,1,P001,Main Street,0.0,2.0,Urban arterial,Reseal,"","",Yes,2.5,1.5,0.5,15000,15,Good,High,50000,ABC Ltd
+R002,2,P002,Highway 1,2.5,4.5,Rural highway,"",Overlay,"",No,0.0,0.0,0.0,8000,8,Fair,Medium,80000,XYZ Corp
+R003,1,P003,Oak Avenue,5.0,6.5,Residential street,Overlay,"",Rehabilitation,No,3.0,2.0,0.8,5000,12,Poor,Low,120000,ABC Ltd
+R004,3,P004,River Road,7.5,9.0,Bridge approach,"",Reseal,"",Yes,0.0,0.0,0.0,12000,20,Fair,High,200000,DEF Inc
+R005,2,P005,Hill Street,10.0,12.0,Hill section,Rehabilitation,"",Reseal,No,2.8,1.8,0.6,6000,10,Good,Medium,90000,XYZ Corp

@@ -4,10 +4,9 @@ from PyQt6.QtWidgets import (
     QLineEdit, QPushButton, QFileDialog, QTextEdit,
     QProgressBar, QMessageBox, QTabWidget, QGroupBox
 )
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from utils.data_processor import process_data
 import logging
-from PyQt6.QtWidgets import QTextEdit
 
 class QTextEditHandler(logging.Handler):
     """Custom logging handler to write logs to QTextEdit."""
@@ -18,11 +17,34 @@ class QTextEditHandler(logging.Handler):
     def emit(self, record):
         msg = self.format(record)
         self.text_edit.append(msg)
+        # Flush UI updates immediately while processing
+        from PyQt6.QtWidgets import QApplication
+        QApplication.processEvents()
+
+class ProcessingWorker(QThread):
+    log_message = pyqtSignal(str)
+    done = pyqtSignal(bool, str)
+
+    def __init__(self, input_file: str, output_file: str):
+        super().__init__()
+        self.input_file = input_file
+        self.output_file = output_file
+
+    def run(self):
+        import traceback
+        try:
+            process_data(self.input_file, self.output_file, self.log_message.emit)
+            self.done.emit(True, "")
+        except Exception as e:
+            err = traceback.format_exc()
+            self.done.emit(False, err)
+
 
 class LMDCleanerTab(QWidget):
     def __init__(self):
         super().__init__()
         self.processing_active = False
+        self.worker = None
         self.initUI()
     
     def update_status(self, message):
@@ -41,12 +63,14 @@ class LMDCleanerTab(QWidget):
         layout.addWidget(title_label)
 
         # Description
-        desc_label = QLabel("This tool cleans LMD data by applying the following filters:\n"
-                           "• Remove rows with empty rawSlope170 and rawSlope270\n"
-                           "• Remove rows where trailingFactor < 0.15\n"
-                           "• Remove rows where abs(tsdSlopeMinY)/tsdSlopeMaxY < 0.15\n"
-                           "• Remove rows where Lane contains 'SK'\n"
-                           "• Remove rows where Ignore is true")
+        desc_label = QLabel(
+            "This tool cleans LMD data by applying the following filters:\n"
+            "- Remove rows with empty RawSlope170 and RawSlope270\n"
+            "- Remove rows where TrailingFactor < 0.15\n"
+            "- Remove rows where abs(tsdSlopeMinY)/tsdSlopeMaxY < 0.15\n"
+            "- Remove rows where Lane contains 'SK'\n"
+            "- Remove rows where Ignore is true"
+        )
         desc_label.setWordWrap(True)
         desc_label.setObjectName("descriptionLabel")
         layout.addWidget(desc_label)
@@ -141,35 +165,42 @@ class LMDCleanerTab(QWidget):
             self.output_edit.setText(file_name)
 
     def handle_process_click(self):
-        """Handle process button click - start processing or cancel if already running"""
+        """Handle process button click - start processing or (placeholder) cancel"""
         if self.processing_active:
-            self.cancel_processing()
+            # Placeholder: real cancellation would require cooperative checks inside worker
+            self.log_text.append("Cancel requested, but cancellation is not implemented for streaming yet.")
+            QMessageBox.information(self, "Cancel", "Cancellation during streaming is not supported yet.")
         else:
             self.process_data()
-
-    def cancel_processing(self):
-        """Cancel the current processing"""
-        if self.processing_active:
-            self.processing_active = False
-            self.reset_process_button()
-            self.progress.setValue(0)
-            self.log_text.append("Processing cancelled by user.")
-            QMessageBox.information(self, "Cancelled", "Processing has been cancelled.")
 
     def reset_process_button(self):
         """Reset process button to initial state"""
         self.process_btn.setText("Process Data")
         self.process_btn.setObjectName("processButton")
         self.process_btn.setStyleSheet("")
+        self.process_btn.setEnabled(True)
         self.process_btn.style().unpolish(self.process_btn)
         self.process_btn.style().polish(self.process_btn)
 
-    def _emit_progress(self, message):
-        """Emit progress message to log"""
+    def _append_log_from_worker(self, message: str):
+        """Safely append log from worker thread"""
         self.log_text.append(message)
-        # Force UI update to show log immediately
         from PyQt6.QtWidgets import QApplication
         QApplication.processEvents()
+
+    def _worker_finished(self, success: bool, error_message: str):
+        """Handle worker completion"""
+        if success:
+            self.progress.setValue(100)
+            QMessageBox.information(self, "Success", "Data processing completed successfully!")
+        else:
+            self.progress.setValue(0)
+            self.log_text.append(f"Processing error: {error_message}")
+            QMessageBox.critical(self, "Processing Error", f"An error occurred during processing:\n{error_message}")
+
+        self.processing_active = False
+        self.worker = None
+        self.reset_process_button()
 
     def process_data(self):
         input_file = self.input_edit.text().strip()
@@ -196,30 +227,8 @@ class LMDCleanerTab(QWidget):
         self.process_btn.style().unpolish(self.process_btn)
         self.process_btn.style().polish(self.process_btn)
 
-        # Set up logging to QTextEdit
-        # Clear any existing handlers to avoid conflicts
-        logger = logging.getLogger()
-        existing_handlers = logger.handlers[:]
-        for handler in existing_handlers:
-            logger.removeHandler(handler)
-        
-        # Add our custom handler
-        handler = QTextEditHandler(self.log_text)
-        handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
-        logger.addHandler(handler)
-        logger.setLevel(logging.INFO)
-
-        try:
-            self.progress.setValue(10)
-            process_data(input_file, output_file, self._emit_progress)
-            self.progress.setValue(100)
-            QMessageBox.information(self, "Success", "Data processing completed successfully!")
-
-        except Exception as e:
-            QMessageBox.critical(self, "Processing Error", f"An error occurred during processing:\n{str(e)}")
-            self.progress.setValue(0)
-
-        finally:
-            logger.removeHandler(handler)
-            self.processing_active = False
-            self.reset_process_button()
+        # Start worker thread to keep UI responsive
+        self.worker = ProcessingWorker(input_file, output_file)
+        self.worker.log_message.connect(self._append_log_from_worker)
+        self.worker.done.connect(self._worker_finished)
+        self.worker.start()

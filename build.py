@@ -42,6 +42,10 @@ def build_exe():
         'PyQt6.QtWidgets',
         'polars',
         'pandas',  # In case polars uses it
+        'logging',
+        'logging.handlers',
+        'traceback',
+        'pathlib',
     ]
 
     for imp in hidden_imports:
