@@ -1,0 +1,9 @@
+"""
+Test requirements file for pytest
+Install with: pip install -r test_requirements.txt
+"""
+pytest>=7.4.0
+pytest-cov>=4.1.0
+pytest-mock>=3.11.1
+pytest-timeout>=2.1.0
+polars>=0.19.0
