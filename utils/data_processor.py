@@ -155,11 +155,15 @@ def _process_standard(
         raise RuntimeError("Failed to read header from CSV file.")
     first_col = columns[0]
 
-    # === Fast CSV read ===
-    log_func(f"Reading CSV file into memory: {input_file}")
+    # === Fast CSV read - READ ALL COLUMNS AS STRING to preserve formatting ===
+    # This ensures 0011 stays as "0011", False stays as "False", etc.
+    log_func(f"Reading CSV file into memory (all columns as string to preserve formatting): {input_file}")
     read_start = time.time()
+    # Create schema_overrides dict to force all columns to be read as strings
+    schema_overrides = {col: pl.Utf8 for col in columns}
     df = pl.read_csv(
         input_file,
+        schema_overrides=schema_overrides,
         truncate_ragged_lines=True,
         null_values=["∞", "inf", "-inf"],
         ignore_errors=True,
@@ -265,11 +269,13 @@ def _process_standard(
     else:
         log_func("Column 'Lane' not found, skipping Lane filtering")
 
-    # === Criterion 5: Remove rows where Ignore is true ===
+    # === Criterion 5: Remove rows where Ignore is true (case-insensitive) ===
     if "Ignore" in df.columns:
         before = len(df)
-        ignore_str = df["Ignore"].cast(pl.Utf8, strict=False).str.to_lowercase()
-        mask_keep = ignore_str != "true"
+        # Already string, but use str.to_lowercase() for case-insensitive comparison
+        # This handles: True, true, TRUE, False, false, FALSE
+        ignore_str = df["Ignore"].str.to_lowercase()
+        mask_keep = (ignore_str != "true") & (ignore_str.is_not_null())
         df = df.filter(mask_keep)
         removed = before - len(df)
         log_func(
@@ -286,8 +292,8 @@ def _process_standard(
         f"(removed {removed_total} of {start_rows})"
     )
 
-    # === Cast everything to string to preserve formatting ===
-    df = df.select([pl.col(c).cast(pl.Utf8).alias(c) for c in df.columns])
+    # === All columns are already strings (read as string from the start) ===
+    # No need to cast - original formatting preserved (0011, False, etc.)
 
     # === Write CSV ===
     write_start = time.time()
@@ -333,10 +339,14 @@ def _process_streaming(input_file: str, output_file: str, log_func) -> None:
         raise RuntimeError("Failed to read header from CSV file.")
     first_col = columns[0]
 
-    # === Build lazy scan ===
-    log_func("Building lazy scan pipeline...")
+    # === Build lazy scan - READ ALL COLUMNS AS STRING to preserve formatting ===
+    # This ensures 0011 stays as "0011", False stays as "False", etc.
+    log_func("Building lazy scan pipeline (all columns as string to preserve formatting)...")
+    # Create schema_overrides dict to force all columns to be read as strings
+    schema_overrides = {col: pl.Utf8 for col in columns}
     lf = pl.scan_csv(
         input_file,
+        schema_overrides=schema_overrides,
         truncate_ragged_lines=True,
         null_values=["∞", "inf", "-inf"],
         ignore_errors=True,
@@ -389,16 +399,19 @@ def _process_streaming(input_file: str, output_file: str, log_func) -> None:
     else:
         log_func("Column 'Lane' not found, skipping Lane filter (STREAMING)")
 
-    # === Criterion 5: Remove rows where Ignore is true ===
+    # === Criterion 5: Remove rows where Ignore is true (case-insensitive) ===
     if "Ignore" in columns:
-        ignore_str = pl.col("Ignore").cast(pl.Utf8, strict=False).str.to_lowercase()
-        lf = lf.filter(ignore_str != "true")
+        # Already string, but use str.to_lowercase() for case-insensitive comparison
+        # This handles: True, true, TRUE, False, false, FALSE
+        ignore_str = pl.col("Ignore").str.to_lowercase()
+        lf = lf.filter((ignore_str != "true") & (ignore_str.is_not_null()))
     else:
         log_func("Column 'Ignore' not found, skipping Ignore filter (STREAMING)")
 
-    # === Cast all original columns to string and drop any helper columns ===
-    # (In this version we didn't add helper columns, so just select originals)
-    lf = lf.select([pl.col(c).cast(pl.Utf8).alias(c) for c in columns if c in lf.columns])
+    # === All columns are already strings (read as string from the start) ===
+    # No need to cast - original formatting preserved (0011, False, etc.)
+    # Just select the original columns in case any were filtered out
+    lf = lf.select([pl.col(c) for c in columns if c in lf.columns])
 
     # === Execute pipeline with streaming enabled ===
     log_func("Collecting filtered data with streaming=True ...")
