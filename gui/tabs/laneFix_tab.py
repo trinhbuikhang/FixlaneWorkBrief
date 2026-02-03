@@ -17,6 +17,7 @@ try:
         PolarsWorkbriefProcessor,
         PolarsCombinedProcessor
     )
+    from utils.security import SecurityValidator, UserFriendlyError
 except ImportError as e:
     print(f"ERROR: Failed to import laneFix modules: {e}")
     print(f"Current working directory: {os.getcwd()}")
@@ -226,10 +227,18 @@ class LaneFixTab(QWidget):
             self, "Select Combined LMD CSV File", "", "CSV Files (*.csv);;All Files (*)"
         )
         if file_name:
-            self.lmd_edit.setText(file_name)
+            # Validate file path
+            is_valid, error_msg, validated_path = SecurityValidator.sanitize_file_path(file_name)
+            
+            if not is_valid:
+                QMessageBox.critical(self, "Invalid File", error_msg)
+                logging.error(f"LMD file validation failed: {error_msg}")
+                return
+            
+            self.lmd_edit.setText(str(validated_path))
             # Auto-suggest output file
             import os
-            base_name = os.path.splitext(file_name)[0]
+            base_name = os.path.splitext(str(validated_path))[0]
             mode = self.mode_group.checkedId()
             suffix = "lane_fixed" if mode == 1 else "workbrief_processed" if mode == 2 else "complete_processed"
             self.output_edit.setText(f"{base_name}_{suffix}.csv")
@@ -239,21 +248,45 @@ class LaneFixTab(QWidget):
             self, "Select Lane Fixes CSV File", "", "CSV Files (*.csv);;All Files (*)"
         )
         if file_name:
-            self.lane_edit.setText(file_name)
+            # Validate file path
+            is_valid, error_msg, validated_path = SecurityValidator.sanitize_file_path(file_name)
+            
+            if not is_valid:
+                QMessageBox.critical(self, "Invalid File", error_msg)
+                logging.error(f"Lane fixes file validation failed: {error_msg}")
+                return
+            
+            self.lane_edit.setText(str(validated_path))
 
     def select_workbrief_file(self):
         file_name, _ = QFileDialog.getOpenFileName(
             self, "Select Workbrief CSV File", "", "CSV Files (*.csv);;All Files (*)"
         )
         if file_name:
-            self.workbrief_edit.setText(file_name)
+            # Validate file path
+            is_valid, error_msg, validated_path = SecurityValidator.sanitize_file_path(file_name)
+            
+            if not is_valid:
+                QMessageBox.critical(self, "Invalid File", error_msg)
+                logging.error(f"Workbrief file validation failed: {error_msg}")
+                return
+            
+            self.workbrief_edit.setText(str(validated_path))
 
     def select_output(self):
         file_name, _ = QFileDialog.getSaveFileName(
             self, "Select Output CSV File", "", "CSV Files (*.csv);;All Files (*)"
         )
         if file_name:
-            self.output_edit.setText(file_name)
+            # Validate output path
+            is_valid, error_msg, validated_path = SecurityValidator.validate_output_path(file_name)
+            
+            if not is_valid:
+                QMessageBox.critical(self, "Invalid Output Path", error_msg)
+                logging.error(f"Output path validation failed: {error_msg}")
+                return
+            
+            self.output_edit.setText(str(validated_path))
 
     def handle_process_click(self):
         """Handle process button click - start processing or cancel if already running"""

@@ -13,6 +13,7 @@ from datetime import datetime
 
 try:
     from utils.client_feedback_processor import ClientFeedbackProcessor
+    from utils.security import SecurityValidator, UserFriendlyError
 except ImportError as e:
     print(f"ERROR: Failed to import client feedback modules: {e}")
     print(f"Current working directory: {os.getcwd()}")
@@ -275,7 +276,15 @@ class ClientFeedbackTab(QWidget):
             self, "Select Combined LMD CSV File", "", "CSV Files (*.csv);;All Files (*)"
         )
         if file_name:
-            self.lmd_edit.setText(file_name)
+            # Validate file path
+            is_valid, error_msg, validated_path = SecurityValidator.sanitize_file_path(file_name)
+            
+            if not is_valid:
+                QMessageBox.critical(self, "Invalid File", error_msg)
+                logging.error(f"LMD file validation failed: {error_msg}")
+                return
+            
+            self.lmd_edit.setText(str(validated_path))
             # File selected - ready for processing (output will be auto-generated)
 
     def select_feedback_file(self):
@@ -283,8 +292,16 @@ class ClientFeedbackTab(QWidget):
             self, "Select Client Feedback CSV File", "", "CSV Files (*.csv);;All Files (*)"
         )
         if file_name:
-            self.feedback_edit.setText(file_name)
-            self.load_columns(file_name)
+            # Validate file path
+            is_valid, error_msg, validated_path = SecurityValidator.sanitize_file_path(file_name)
+            
+            if not is_valid:
+                QMessageBox.critical(self, "Invalid File", error_msg)
+                logging.error(f"Feedback file validation failed: {error_msg}")
+                return
+            
+            self.feedback_edit.setText(str(validated_path))
+            self.load_columns(str(validated_path))
 
     def handle_process_click(self):
         """Handle process button click - start processing or cancel if already running"""

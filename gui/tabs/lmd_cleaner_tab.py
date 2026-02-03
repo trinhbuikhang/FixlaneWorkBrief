@@ -1,4 +1,5 @@
 import sys
+import os
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QLineEdit, QPushButton, QFileDialog, QTextEdit,
@@ -6,7 +7,10 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from utils.data_processor import process_data
+from utils.security import SecurityValidator, UserFriendlyError
 import logging
+import gc
+import time
 
 class QTextEditHandler(logging.Handler):
     """Custom logging handler to write logs to QTextEdit."""
@@ -25,19 +29,79 @@ class ProcessingWorker(QThread):
     log_message = pyqtSignal(str)
     done = pyqtSignal(bool, str)
 
-    def __init__(self, input_file: str, output_file: str):
+    def __init__(self, input_file: str, output_file: str, timeout: int = 7200):
         super().__init__()
         self.input_file = input_file
         self.output_file = output_file
+        self.timeout = timeout
+        self._is_cancelled = False
+        self._start_time = None
+
+    def cancel(self):
+        """Request cancellation of processing"""
+        self._is_cancelled = True
 
     def run(self):
         import traceback
+        self._start_time = time.time()
+        temp_files = []
+        
         try:
+            # Process with timeout awareness
             process_data(self.input_file, self.output_file, self.log_message.emit)
-            self.done.emit(True, "")
+            
+            # Check if operation took too long
+            elapsed = time.time() - self._start_time
+            if elapsed > self.timeout:
+                raise TimeoutError(f"Processing timeout after {self.timeout}s")
+            
+            if self._is_cancelled:
+                self.done.emit(False, "Processing cancelled by user")
+            else:
+                self.done.emit(True, "")
+                
+        except MemoryError as e:
+            error_msg = UserFriendlyError.format_error(
+                e, 
+                "Out of memory. Try using streaming mode or closing other applications.",
+                "LMD Data Processing"
+            )
+            self.done.emit(False, error_msg)
+            logging.error(f"Memory error during processing: {e}")
+            
+        except TimeoutError as e:
+            error_msg = UserFriendlyError.format_error(
+                e,
+                f"Processing timeout. Operation took longer than {self.timeout//60} minutes.",
+                "LMD Data Processing"
+            )
+            self.done.emit(False, error_msg)
+            logging.error(f"Timeout during processing: {e}")
+            
+        except (FileNotFoundError, PermissionError, OSError) as e:
+            error_msg = UserFriendlyError.format_error(e, context="LMD Data Processing")
+            self.done.emit(False, error_msg)
+            logging.error(f"File system error: {e}")
+            
+        except KeyboardInterrupt:
+            self.done.emit(False, "Processing interrupted by user")
+            logging.warning("Processing interrupted by user")
+            
         except Exception as e:
-            err = traceback.format_exc()
-            self.done.emit(False, err)
+            error_msg = UserFriendlyError.format_error(e, context="LMD Data Processing")
+            self.done.emit(False, error_msg)
+            logging.error(f"Unexpected error: {traceback.format_exc()}")
+            
+        finally:
+            # Clean up resources
+            for temp_file in temp_files:
+                try:
+                    if os.path.exists(temp_file):
+                        os.remove(temp_file)
+                except:
+                    pass
+            
+            gc.collect()  # Force garbage collection
 
 
 class LMDCleanerTab(QWidget):
@@ -151,10 +215,19 @@ class LMDCleanerTab(QWidget):
             self, "Select Input CSV File", "", "CSV Files (*.csv);;All Files (*)"
         )
         if file_name:
-            self.input_edit.setText(file_name)
+            # Validate file path
+            is_valid, error_msg, validated_path = SecurityValidator.sanitize_file_path(file_name)
+            
+            if not is_valid:
+                QMessageBox.critical(self, "Invalid File", error_msg)
+                logging.error(f"File validation failed: {error_msg}")
+                return
+            
+            self.input_edit.setText(str(validated_path))
+            
             # Auto-suggest output file
             import os
-            base_name = os.path.splitext(file_name)[0]
+            base_name = os.path.splitext(str(validated_path))[0]
             self.output_edit.setText(f"{base_name}_cleaned.csv")
 
     def select_output(self):
@@ -162,7 +235,15 @@ class LMDCleanerTab(QWidget):
             self, "Select Output CSV File", "", "CSV Files (*.csv);;All Files (*)"
         )
         if file_name:
-            self.output_edit.setText(file_name)
+            # Validate output path
+            is_valid, error_msg, validated_path = SecurityValidator.validate_output_path(file_name)
+            
+            if not is_valid:
+                QMessageBox.critical(self, "Invalid Output Path", error_msg)
+                logging.error(f"Output path validation failed: {error_msg}")
+                return
+            
+            self.output_edit.setText(str(validated_path))
 
     def handle_process_click(self):
         """Handle process button click - start processing or (placeholder) cancel"""

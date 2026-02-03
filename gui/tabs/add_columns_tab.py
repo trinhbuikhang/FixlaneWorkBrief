@@ -15,6 +15,7 @@ import gc
 try:
     from utils.add_columns_processor import AddColumnsProcessor
     from utils.memory_efficient_processor import MemoryEfficientAddColumnsProcessor
+    from utils.security import SecurityValidator, UserFriendlyError
     import psutil
 except ImportError as e:
     print(f"ERROR: Failed to import processors: {e}")
@@ -202,30 +203,29 @@ class AddColumnsTab(QWidget):
         )
         if file_path:
             try:
-                self.last_directory["lmd"] = os.path.dirname(file_path)
-                self.combined_lmd = {"file_path": file_path}
-
-                if not os.path.exists(file_path):
-                    raise FileNotFoundError(f"File not found: {file_path}")
-
-                if not os.access(file_path, os.R_OK):
-                    raise PermissionError(f"No permission to read file: {file_path}")
+                # Validate file path
+                is_valid, error_msg, validated_path = SecurityValidator.sanitize_file_path(file_path)
+                
+                if not is_valid:
+                    QMessageBox.critical(self, "Invalid File", error_msg)
+                    logging.error(f"LMD file validation failed: {error_msg}")
+                    return
+                
+                self.last_directory["lmd"] = os.path.dirname(str(validated_path))
+                self.combined_lmd = {"file_path": str(validated_path)}
 
                 # Read only the header
-                temp_df = pl.read_csv(file_path, n_rows=0, null_values=['∞'], infer_schema_length=0)
+                temp_df = pl.read_csv(str(validated_path), n_rows=0, null_values=['∞'], infer_schema_length=0)
                 self.update_column_listbox(temp_df)
 
-                self.lmd_edit.setText(os.path.basename(file_path))  # Update QLineEdit with filename
-                QMessageBox.information(self, "Success", f"Combined_LMD file loaded: {os.path.basename(file_path)}")
+                self.lmd_edit.setText(os.path.basename(str(validated_path)))  # Update QLineEdit with filename
+                QMessageBox.information(self, "Success", f"Combined_LMD file loaded: {os.path.basename(str(validated_path))}")
 
-            except FileNotFoundError as e:
-                QMessageBox.critical(self, "File Error", str(e))
-            except PermissionError as e:
-                QMessageBox.critical(self, "Permission Error", str(e))
             except pl.exceptions.NoDataError:
                 QMessageBox.critical(self, "Data Error", "The file is empty or has no valid CSV content")
             except Exception as e:
-                QMessageBox.critical(self, "Error", f"An error occurred while reading the Combined_LMD file: {e}")
+                error_msg = UserFriendlyError.format_error(e, context="Loading LMD file")
+                QMessageBox.critical(self, "Error", error_msg)
 
     def update_column_listbox(self, temp_df):
         self.column_listbox.clear()
@@ -246,17 +246,21 @@ class AddColumnsTab(QWidget):
         )
         if file_path:
             try:
-                if not os.path.exists(file_path):
-                    raise FileNotFoundError(f"File not found: {file_path}")
+                # Validate file path
+                is_valid, error_msg, validated_path = SecurityValidator.sanitize_file_path(file_path)
+                
+                if not is_valid:
+                    QMessageBox.critical(self, "Invalid File", error_msg)
+                    logging.error(f"Details file validation failed: {error_msg}")
+                    return
 
-                if not os.access(file_path, os.R_OK):
-                    raise PermissionError(f"No permission to read file: {file_path}")
-
-                self.combined_details_file = file_path
-                self.last_directory["details"] = os.path.dirname(file_path)
-                self.details_edit.setText(os.path.basename(file_path))  # Update QLineEdit instead of QLabel
+                self.combined_details_file = str(validated_path)
+                self.last_directory["details"] = os.path.dirname(str(validated_path))
+                self.details_edit.setText(os.path.basename(str(validated_path)))  # Update QLineEdit instead of QLabel
+                
             except Exception as e:
-                QMessageBox.critical(self, "Error", f"Error selecting file: {e}")
+                error_msg = UserFriendlyError.format_error(e, context="Selecting Details file")
+                QMessageBox.critical(self, "Error", error_msg)
 
     def handle_process_click(self):
         """Handle process button click - start processing or cancel if already running"""
