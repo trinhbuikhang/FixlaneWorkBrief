@@ -5,10 +5,13 @@ Handles adding columns from LMD data to Details data using Polars.
 
 import polars as pl
 import logging
+import gc
 from typing import Optional, Callable, List, Tuple
 from pathlib import Path
 import os
 from datetime import datetime
+
+from utils.file_lock import FileLock, FileLockTimeout
 
 logger = logging.getLogger(__name__)
 
@@ -456,6 +459,12 @@ class AddColumnsProcessor:
                 else:
                     with open(output_file_path, 'a', encoding='utf-8') as f:
                         f.write(joined_chunk.write_csv(include_header=False))
+
+                # Clean up chunk to free memory
+                del joined_chunk
+                del chunk
+                if chunk_idx % 10 == 0:  # Every 10 chunks
+                    gc.collect()
 
                 processed_rows += len(chunk)
                 

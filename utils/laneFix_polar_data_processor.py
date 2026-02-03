@@ -6,12 +6,14 @@ Provides classes and methods for lane fixing and workbrief processing operations
 import polars as pl
 import os
 import logging
+import gc
 from pathlib import Path
 from typing import Optional, Tuple, Callable
 from datetime import datetime
 
 from config.laneFix_config import Config, Messages
 from utils.timestamp_handler import timestamp_handler
+from utils.file_lock import FileLock, FileLockTimeout
 
 
 logger = logging.getLogger(__name__)
@@ -202,13 +204,22 @@ class PolarsDataProcessor:
         # Prepare data for output
         df_output = self._prepare_for_csv_output(df)
         
-        # Write to CSV with null values as empty strings
-        df_output.write_csv(
-            output_path,
-            null_value="",  # Empty string for null values
-            quote_char='"',
-            separator=','
-        )
+        # Write to CSV with file locking
+        try:
+            with FileLock(output_path, timeout=60):
+                df_output.write_csv(
+                    output_path,
+                    null_value="",  # Empty string for null values
+                    quote_char='"',
+                    separator=','
+                )
+        except FileLockTimeout:
+            logger.error(f"Output file {output_path} is locked by another process")
+            raise RuntimeError(f"Cannot write to {output_path} - file is locked")
+        
+        # Clean up output dataframe
+        del df_output
+        gc.collect()
         
         logger.info(f"Results saved to: {output_path}")
         return output_path

@@ -146,10 +146,46 @@ class SecurityValidator:
 
 
 class UserFriendlyError:
-    """Generate user-friendly error messages without exposing internal details"""
+    """
+    Generate user-friendly error messages without exposing internal details.
+    
+    Enhanced for Phase 2:
+    - Sanitizes file paths in error messages
+    - Removes stack trace information
+    - Provides actionable guidance
+    - Includes error ID for support
+    """
     
     # Error ID counter for tracking
     _error_counter = 0
+    
+    @staticmethod
+    def _sanitize_message(message: str) -> str:
+        """
+        Sanitize error message to remove sensitive information.
+        
+        Removes:
+        - Full file paths (keeps only filename)
+        - Stack traces
+        - Internal variable names
+        - System paths
+        """
+        import re
+        
+        # Replace full Windows paths with just filename
+        message = re.sub(r'[A-Za-z]:\\[^:\n]+\\([^\\:\n]+)', r'\1', message)
+        
+        # Replace Unix paths with just filename
+        message = re.sub(r'/[\w/]+/([^\s/:]+)', r'\1', message)
+        
+        # Remove stack trace markers
+        message = re.sub(r'File ".*", line \d+', '', message)
+        message = re.sub(r'Traceback.*:\n', '', message)
+        
+        # Remove Python internal references
+        message = re.sub(r'<[\w\s.]+at 0x[0-9a-fA-F]+>', '', message)
+        
+        return message.strip()
     
     @staticmethod
     def format_error(exception: Exception, user_message: str = None, context: str = None) -> str:
@@ -162,7 +198,7 @@ class UserFriendlyError:
             context: Optional context about what operation failed
             
         Returns:
-            User-friendly error message
+            User-friendly error message with actionable guidance
         """
         import traceback
         import uuid
@@ -177,29 +213,76 @@ class UserFriendlyError:
         logger.error(f"Exception message: {str(exception)}")
         logger.error(f"Full traceback:\n{traceback.format_exc()}")
         
-        # Generate user-friendly message
+        # Generate user-friendly message with actionable guidance
         if user_message:
             message = user_message
         else:
-            # Generic messages based on exception type
+            # Enhanced messages with actionable guidance
             error_messages = {
-                FileNotFoundError: "The selected file could not be found.",
-                PermissionError: "Permission denied. Please check file permissions.",
-                MemoryError: "Insufficient memory. Try using streaming mode or closing other applications.",
-                ValueError: "Invalid data format detected in the file.",
-                TimeoutError: "Operation timeout. The file may be too large.",
-                OSError: "File system error. Please check disk space and permissions.",
-                IOError: "Input/output error while accessing the file.",
+                FileNotFoundError: (
+                    "The selected file could not be found.\n"
+                    "• Please check if the file still exists\n"
+                    "• Ensure the file hasn't been moved or deleted"
+                ),
+                PermissionError: (
+                    "Permission denied when accessing the file.\n"
+                    "• Close the file in Excel or other programs\n"
+                    "• Check if you have read/write permissions\n"
+                    "• Try running the application as administrator"
+                ),
+                MemoryError: (
+                    "Insufficient memory to process the file.\n"
+                    "• Close other applications to free up memory\n"
+                    "• Try processing a smaller file\n"
+                    "• The application will use streaming mode for large files"
+                ),
+                ValueError: (
+                    "Invalid data format detected in the file.\n"
+                    "• Ensure the file is a properly formatted CSV\n"
+                    "• Check for missing or corrupted data\n"
+                    "• Verify the file has the expected columns"
+                ),
+                TimeoutError: (
+                    "Operation timed out. The file may be too large.\n"
+                    "• Try processing a smaller file\n"
+                    "• Close other running processes\n"
+                    "• Contact support if the problem persists"
+                ),
+                OSError: (
+                    "File system error occurred.\n"
+                    "• Check available disk space\n"
+                    "• Verify file permissions\n"
+                    "• Ensure the disk is not full or write-protected"
+                ),
+                IOError: (
+                    "Input/output error while accessing the file.\n"
+                    "• Check if the file is corrupted\n"
+                    "• Verify the storage device is working\n"
+                    "• Try copying the file to a different location"
+                ),
             }
-            message = error_messages.get(type(exception), "An unexpected error occurred during processing.")
+            
+            base_message = error_messages.get(
+                type(exception), 
+                "An unexpected error occurred during processing."
+            )
+            
+            # Sanitize exception message and add if it provides useful info
+            sanitized_ex_msg = UserFriendlyError._sanitize_message(str(exception))
+            if sanitized_ex_msg and len(sanitized_ex_msg) < 200:
+                message = f"{base_message}\n\nDetails: {sanitized_ex_msg}"
+            else:
+                message = base_message
         
         # Add context if provided
         if context:
-            message = f"{message}\n\nOperation: {context}"
+            clean_context = UserFriendlyError._sanitize_message(context)
+            message = f"{message}\n\nOperation: {clean_context}"
         
         # Add error ID for support
-        message += f"\n\nError ID: {error_id}"
-        message += f"\nPlease check the log file for detailed information."
+        message += f"\n\n{'─'*50}"
+        message += f"\nError ID: {error_id}"
+        message += f"\nCheck logs for details: logs/application.log"
         
         return message
 

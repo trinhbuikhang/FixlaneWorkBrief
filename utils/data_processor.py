@@ -1,10 +1,13 @@
 import logging
 import os
 import time
+import gc
 from datetime import datetime
 
 import polars as pl
 import psutil
+
+from utils.file_lock import FileLock, FileLockTimeout
 
 
 def process_data(input_file: str, output_file: str, progress_callback=None) -> None:
@@ -297,7 +300,13 @@ def _process_standard(
 
     # === Write CSV ===
     write_start = time.time()
-    df.write_csv(output_file, include_header=True)
+    try:
+        with FileLock(output_file, timeout=60):
+            df.write_csv(output_file, include_header=True)
+    except FileLockTimeout:
+        log_func("ERROR: Output file is locked by another process", "ERROR")
+        raise RuntimeError(f"Cannot write to {output_file} - file is locked")
+    
     write_time = time.time() - write_start
     log_func(f"Written CSV to {output_file} in {write_time:.2f}s")
 
@@ -426,9 +435,24 @@ def _process_streaming(input_file: str, output_file: str, log_func) -> None:
 
     # === Write CSV ===
     write_start = time.time()
-    df.write_csv(output_file, include_header=True)
+    try:
+        with FileLock(output_file, timeout=60):
+            df.write_csv(output_file, include_header=True)
+    except FileLockTimeout:
+        log_func("ERROR: Output file is locked by another process", "ERROR")
+        raise RuntimeError(f"Cannot write to {output_file} - file is locked")
+    
     write_time = time.time() - write_start
     log_func(f"Written CSV to {output_file} in {write_time:.2f}s")
+    # === Explicit memory cleanup ===
+    del df
+    gc.collect()
+    log_func("Memory cleanup completed (DataFrame released)")
+    # === Explicit memory cleanup ===
+    del df
+    del lf
+    gc.collect()
+    log_func("Memory cleanup completed (DataFrame and LazyFrame released)")
 
     end_time = time.time()
     total_time = end_time - start_time

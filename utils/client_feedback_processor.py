@@ -4,8 +4,11 @@ Optimized Client Feedback Processor for Data Processing Tool
 
 import polars as pl
 import logging
+import gc
 from typing import Optional, Callable, Tuple
 from pathlib import Path
+
+from utils.file_lock import FileLock, FileLockTimeout
 
 logger = logging.getLogger(__name__)
 
@@ -126,7 +129,15 @@ class ClientFeedbackProcessor:
 
             if result_df is None:
                 self._emit_progress("ERROR: Client feedback processing failed")
+                # Clean up on failure
+                del feedback_df
+                gc.collect()
                 return None
+
+            # Clean up intermediate dataframes
+            del feedback_df
+            gc.collect()
+            self._emit_progress("Memory cleanup completed")
 
             self._emit_progress("Client feedback processing completed")
             return result_df
@@ -185,7 +196,17 @@ class ClientFeedbackProcessor:
             
             if result_df is None:
                 self._emit_progress("❌ ERROR: Processing failed")
+                # Clean up on failure
+                del feedback_df
+                del lazy_df
+                gc.collect()
                 return None
+
+            # Clean up intermediate dataframes
+            del feedback_df
+            del lazy_df
+            gc.collect()
+            self._emit_progress("✓ Memory cleanup completed")
 
             return result_df
 
@@ -648,13 +669,23 @@ class ClientFeedbackProcessor:
             # Prepare for CSV output (handle booleans and empty strings)
             df_output = self._prepare_for_csv_output(df)
             
-            # Write CSV with specific options for proper empty cell handling
-            df_output.write_csv(
-                output_path,
-                quote_style='necessary',  # Only quote when needed
-                null_value='',  # Null values become empty cells (no quotes)
-                datetime_format='%d/%m/%Y %H:%M:%S%.3f'
-            )
+            # Write CSV with file locking to prevent concurrent writes
+            try:
+                with FileLock(output_path, timeout=60):
+                    df_output.write_csv(
+                        output_path,
+                        quote_style='necessary',  # Only quote when needed
+                        null_value='',  # Null values become empty cells (no quotes)
+                        datetime_format='%d/%m/%Y %H:%M:%S%.3f'
+                    )
+            except FileLockTimeout:
+                logger.error(f"Output file {output_path} is locked by another process")
+                self._emit_progress(f"ERROR: Cannot write - file is locked by another process")
+                return False
+            
+            # Clean up output dataframe
+            del df_output
+            gc.collect()
             
             self._emit_progress(f"Output written to: {output_path}")
             return True
