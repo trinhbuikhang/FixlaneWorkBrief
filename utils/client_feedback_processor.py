@@ -232,7 +232,41 @@ class ClientFeedbackProcessor:
             self._emit_progress(f"📋 LMD input: {original_row_count:,} records with {len(original_columns)} columns")
             self._emit_progress(f"📋 Feedback input: {len(feedback_df):,} records")
 
-            # Find Road ID column variants with case-insensitive matching
+            # Find Region ID column variants with case-insensitive matching (REQUIRED)
+            # Support: region_id, Region ID, RegionID, regionid, REGIONID, region, Region
+            region_id_variants = ['region_id', 'Region ID', 'RegionID', 'regionid', 'REGIONID', 
+                                 'Region_ID', 'region ID', 'region', 'Region', 'REGION',
+                                 'RegionId', 'region_Id', 'REGION_ID']
+            input_region_col = None
+            feedback_region_col = None
+
+            # Case-sensitive exact match first
+            for variant in region_id_variants:
+                if variant in result_df.columns and input_region_col is None:
+                    input_region_col = variant
+                if variant in feedback_df.columns and feedback_region_col is None:
+                    feedback_region_col = variant
+            
+            # If not found, try case-insensitive matching
+            if not input_region_col:
+                for col in result_df.columns:
+                    for variant in region_id_variants:
+                        if col.lower() == variant.lower():
+                            input_region_col = col
+                            break
+                    if input_region_col:
+                        break
+                        
+            if not feedback_region_col:
+                for col in feedback_df.columns:
+                    for variant in region_id_variants:
+                        if col.lower() == variant.lower():
+                            feedback_region_col = col
+                            break
+                    if feedback_region_col:
+                        break
+
+            # Find Road ID column variants with case-insensitive matching (REQUIRED)
             # Support: Road ID, RoadID, sectionID, roadid, roadname, sectionName
             road_id_variants = ['Road ID', 'RoadID', 'road_id', 'roadid', 'ROADID', 'Road_ID', 'road ID', 
                                'Road Name', 'road_name', 'ROAD_NAME', 'roadname', 'RoadName',
@@ -267,11 +301,14 @@ class ClientFeedbackProcessor:
                     if feedback_road_col:
                         break
 
-            if not input_road_col or not feedback_road_col:
-                self._emit_progress("⚠️ WARNING: Road ID columns not found - adding empty feedback columns")
+            # Check for REQUIRED columns: Region ID and Road ID
+            if not input_region_col or not feedback_region_col or not input_road_col or not feedback_road_col:
+                self._emit_progress("⚠️ WARNING: Required key columns not found - adding empty feedback columns")
+                self._emit_progress(f"   • LMD Region ID column: {'✓ ' + input_region_col if input_region_col else '❌ Not found'}")
+                self._emit_progress(f"   • Feedback Region ID column: {'✓ ' + feedback_region_col if feedback_region_col else '❌ Not found'}")
                 self._emit_progress(f"   • LMD Road ID column: {'✓ ' + input_road_col if input_road_col else '❌ Not found'}")
                 self._emit_progress(f"   • Feedback Road ID column: {'✓ ' + feedback_road_col if feedback_road_col else '❌ Not found'}")
-                logger.error("Road ID columns not found")
+                logger.error("Required key columns (region_id + road_id) not found")
                 # Add empty feedback columns to maintain structure
                 feedback_columns_to_add = ['Site Description', 'Treatment 2024', 'Treatment 2025', 
                                           'Treatment 2026', 'Terminal', 'Foamed Bitumen %', 
@@ -377,6 +414,8 @@ class ClientFeedbackProcessor:
                         break
 
             self._emit_progress("STEP 2: COLUMN MAPPING DETECTED")
+            self._emit_progress(f"✓ LMD Region ID column: '{input_region_col}'")
+            self._emit_progress(f"✓ Feedback Region ID column: '{feedback_region_col}'")
             self._emit_progress(f"✓ LMD Road ID column: '{input_road_col}'")
             self._emit_progress(f"✓ Feedback Road ID column: '{feedback_road_col}'")  
             self._emit_progress(f"✓ LMD Chainage column: '{input_chainage_col}'")
@@ -395,7 +434,7 @@ class ClientFeedbackProcessor:
             self._emit_progress(f"✓ Feedback Start chainage: '{start_col}'")
             self._emit_progress(f"✓ Feedback End chainage: '{end_col}'")
 
-            logger.info(f"Using columns - Road: {input_road_col}/{feedback_road_col}, Chainage: {input_chainage_col}")
+            logger.info(f"Using columns - Region: {input_region_col}/{feedback_region_col}, Road: {input_road_col}/{feedback_road_col}, Chainage: {input_chainage_col}")
 
             # Use only the columns specified by the user (extra_columns parameter)
             # If no columns specified, use standard default columns
@@ -410,16 +449,23 @@ class ClientFeedbackProcessor:
                 self._emit_progress(f"⚠️ No columns selected - using default columns: {', '.join(feedback_columns_to_add)}")
             
             # System columns that should not be included in data columns
-            system_columns = {feedback_road_col, start_col, end_col, 'road_id', 'region_id', 'project_id', 'Road Name'}
+            system_columns = {feedback_region_col, feedback_road_col, start_col, end_col, 
+                             'road_id', 'region_id', 'project_id', 'Road Name', 'Region', 'Region ID'}
             
             # Log what columns are available for reference
             available_data_columns = [col for col in feedback_df.columns if col not in system_columns]
-            self._emit_progress(f"� Available data columns in feedback file: {', '.join(available_data_columns) if available_data_columns else 'None'}")
+            self._emit_progress(f"📊 Available data columns in feedback file: {', '.join(available_data_columns) if available_data_columns else 'None'}")
             
             # Remove duplicates while preserving order
             feedback_columns_to_add = list(dict.fromkeys(feedback_columns_to_add))
 
             # Validate required columns exist
+            if feedback_region_col not in feedback_df.columns:
+                self._emit_progress(f"❌ ERROR: Feedback Region ID column '{feedback_region_col}' not found in feedback file")
+                self._emit_progress(f"   Available columns: {list(feedback_df.columns)}")
+                logger.error(f"Feedback Region ID column '{feedback_region_col}' not found")
+                return result_df
+                
             if feedback_road_col not in feedback_df.columns:
                 self._emit_progress(f"❌ ERROR: Feedback Road ID column '{feedback_road_col}' not found in feedback file")
                 self._emit_progress(f"   Available columns: {list(feedback_df.columns)}")
@@ -450,22 +496,54 @@ class ClientFeedbackProcessor:
             else:
                 self._emit_progress(f"📏 Detected chainage unit: KILOMETERS (columns: {start_col}, {end_col})")
             
+            # VALIDATION: Remove NULL values from feedback file before processing
+            original_feedback_count = len(feedback_df)
+            feedback_df = feedback_df.filter(
+                pl.col(feedback_region_col).is_not_null() & 
+                pl.col(feedback_road_col).is_not_null() &
+                pl.col(start_col).is_not_null() &
+                pl.col(end_col).is_not_null()
+            )
+            
+            if len(feedback_df) < original_feedback_count:
+                removed = original_feedback_count - len(feedback_df)
+                self._emit_progress(f"⚠️ Removed {removed} feedback row(s) with NULL key values")
+                logger.warning(f"Removed {removed} feedback rows with NULL values")
+            
             # Process feedback data with appropriate unit conversion
             try:
                 if is_meters:
                     # Data is already in meters - round to nearest 10m
+                    # Create BOTH original (preserve format) and normalized (for matching) IDs
                     feedback_processed = feedback_df.with_columns([
-                        pl.col(feedback_road_col).cast(pl.Utf8).alias('fb_road_id'),
+                        # Original IDs - preserve format with leading zeros
+                        pl.col(feedback_region_col).cast(pl.Utf8).str.strip_chars().alias('fb_region_id_original'),
+                        pl.col(feedback_road_col).cast(pl.Utf8).str.strip_chars().alias('fb_road_id_original'),
+                        # Normalized IDs - strip leading zeros for matching
+                        pl.col(feedback_region_col).cast(pl.Utf8).str.strip_chars().str.strip_chars_start('0').alias('fb_region_id'),
+                        pl.col(feedback_road_col).cast(pl.Utf8).str.strip_chars().str.strip_chars_start('0').alias('fb_road_id'),
                         ((pl.col(start_col).cast(pl.Float64) / 10).round(0) * 10).alias('start_chainage_m'),
                         ((pl.col(end_col).cast(pl.Float64) / 10).round(0) * 10).alias('end_chainage_m')
                     ])
                 else:
                     # Data is in kilometers - convert to meters and round to nearest 10m
+                    # Create BOTH original (preserve format) and normalized (for matching) IDs
                     feedback_processed = feedback_df.with_columns([
-                        pl.col(feedback_road_col).cast(pl.Utf8).alias('fb_road_id'),
+                        # Original IDs - preserve format with leading zeros
+                        pl.col(feedback_region_col).cast(pl.Utf8).str.strip_chars().alias('fb_region_id_original'),
+                        pl.col(feedback_road_col).cast(pl.Utf8).str.strip_chars().alias('fb_road_id_original'),
+                        # Normalized IDs - strip leading zeros for matching
+                        pl.col(feedback_region_col).cast(pl.Utf8).str.strip_chars().str.strip_chars_start('0').alias('fb_region_id'),
+                        pl.col(feedback_road_col).cast(pl.Utf8).str.strip_chars().str.strip_chars_start('0').alias('fb_road_id'),
                         (((pl.col(start_col).cast(pl.Float64) * 1000) / 10).round(0) * 10).alias('start_chainage_m'),
                         (((pl.col(end_col).cast(pl.Float64) * 1000) / 10).round(0) * 10).alias('end_chainage_m')
                     ])
+                
+                # Handle edge case: if all zeros are stripped, replace empty string with '0'
+                feedback_processed = feedback_processed.with_columns([
+                    pl.when(pl.col('fb_region_id') == '').then(pl.lit('0')).otherwise(pl.col('fb_region_id')).alias('fb_region_id'),
+                    pl.when(pl.col('fb_road_id') == '').then(pl.lit('0')).otherwise(pl.col('fb_road_id')).alias('fb_road_id')
+                ])
                 
             except Exception as e:
                 self._emit_progress(f"❌ ERROR: Failed to process feedback columns: {e}")
@@ -491,70 +569,106 @@ class ClientFeedbackProcessor:
                 self._emit_progress(f"⚠️ Selected columns not found (will be empty): {', '.join(columns_added_empty)}")
                 self._emit_progress(f"💡 Tip: Only select columns that exist in your feedback file to get actual data")
 
+            # Check for overlapping ranges in feedback (for logging purposes)
+            feedback_range_stats = feedback_processed.group_by(['fb_region_id', 'fb_road_id']).agg([
+                pl.len().alias('range_count')
+            ])
+            multi_range_count = feedback_range_stats.filter(pl.col('range_count') > 1).height
+            if multi_range_count > 0:
+                max_ranges = feedback_range_stats['range_count'].max()
+                self._emit_progress(f"⚠️ WARNING: {multi_range_count} region+road combinations have multiple chainage ranges")
+                self._emit_progress(f"   • Maximum ranges per region+road: {max_ranges}")
+                self._emit_progress(f"   • When multiple matches occur, only the FIRST match will be used")
+                logger.warning(f"{multi_range_count} region+road combinations have multiple ranges (max: {max_ranges})")
+            
             # Process input data - also add lane column if available
+            # Create BOTH original (preserve format) and normalized (for matching) IDs
+            
+            # Detect input chainage unit: 'location' is in meters, 'chainage' is typically in km
+            input_chainage_is_meters = 'location' in input_chainage_col.lower() or \
+                                      '_m' in input_chainage_col.lower() or \
+                                      'meter' in input_chainage_col.lower()
+            
+            if input_chainage_is_meters:
+                self._emit_progress(f"📏 Input chainage unit: METERS (column: {input_chainage_col})")
+                chainage_expr = pl.col(input_chainage_col).cast(pl.Float64).alias('chainage_m')
+            else:
+                self._emit_progress(f"📏 Input chainage unit: KILOMETERS (column: {input_chainage_col}) - converting to meters")
+                chainage_expr = (pl.col(input_chainage_col).cast(pl.Float64) * 1000).alias('chainage_m')
+            
             process_exprs = [
-                pl.col(input_road_col).cast(pl.Utf8).alias('road_id_join'),
-                pl.when(pl.lit(input_chainage_col.lower() == 'location'))
-                .then(pl.col(input_chainage_col).cast(pl.Float64) * 1000)
-                .otherwise(pl.col(input_chainage_col).cast(pl.Float64))
-                .alias('chainage_m')
+                # Normalized IDs - strip leading zeros for matching
+                pl.col(input_region_col).cast(pl.Utf8).str.strip_chars().str.strip_chars_start('0').alias('region_id_join'),
+                pl.col(input_road_col).cast(pl.Utf8).str.strip_chars().str.strip_chars_start('0').alias('road_id_join'),
+                chainage_expr
             ]
+            
+            # Handle edge case: if all zeros are stripped, replace empty string with '0'
+            result_processed = result_df.with_columns(process_exprs)
+            result_processed = result_processed.with_columns([
+                pl.when(pl.col('region_id_join') == '').then(pl.lit('0')).otherwise(pl.col('region_id_join')).alias('region_id_join'),
+                pl.when(pl.col('road_id_join') == '').then(pl.lit('0')).otherwise(pl.col('road_id_join')).alias('road_id_join')
+            ])
             
             # Add lane column for matching if available
             use_lane_matching = input_lane_col and feedback_lane_col
             if use_lane_matching:
-                process_exprs.append(pl.col(input_lane_col).cast(pl.Utf8).alias('lane_join'))
+                result_processed = result_processed.with_columns([
+                    pl.col(input_lane_col).cast(pl.Utf8).alias('lane_join')
+                ])
                 # Also add lane to feedback for joining
                 feedback_processed = feedback_processed.with_columns([
                     pl.col(feedback_lane_col).cast(pl.Utf8).alias('fb_lane')
                 ])
-            
-            result_processed = result_df.with_columns(process_exprs)
 
             # Add row index for tracking
             result_processed = result_processed.with_row_count('_row_idx')
 
-            self._emit_progress("STEP 3: ROAD SECTION MATCHING")
+            self._emit_progress("STEP 3: REGION + ROAD SECTION MATCHING")
+            self._emit_progress(f"📝 Matching strategy: Normalize IDs (strip leading zeros) while preserving original format")
             if use_lane_matching:
-                self._emit_progress(f"🔗 Starting chainage+lane-based matching process...")
+                self._emit_progress(f"🔗 Starting region+road+chainage+lane-based matching process...")
             else:
-                self._emit_progress(f"🔗 Starting chainage-based matching process...")
+                self._emit_progress(f"🔗 Starting region+road+chainage-based matching process...")
             
-            # Get unique road IDs for statistics
+            # Get unique region+road IDs for statistics
+            unique_lmd_regions = result_processed['region_id_join'].n_unique()
+            unique_feedback_regions = feedback_processed['fb_region_id'].n_unique()
             unique_lmd_roads = result_processed['road_id_join'].n_unique()
             unique_feedback_roads = feedback_processed['fb_road_id'].n_unique()
             
+            self._emit_progress(f"📊 Unique region IDs - LMD: {unique_lmd_regions}, Feedback: {unique_feedback_regions}")
             self._emit_progress(f"📊 Unique road IDs - LMD: {unique_lmd_roads}, Feedback: {unique_feedback_roads}")
             
             # OPTIMIZED: Use cross join with filtering instead of nested loops
             # This is much faster with Polars' columnar operations
             
-            # First, join on road_id (and optionally lane) with explicit suffix to avoid naming conflicts
+            # First, join on region_id + road_id (and optionally lane) with explicit suffix to avoid naming conflicts
             if use_lane_matching:
                 joined = result_processed.join(
                     feedback_processed,
-                    left_on=['road_id_join', 'lane_join'],
-                    right_on=['fb_road_id', 'fb_lane'],
+                    left_on=['region_id_join', 'road_id_join', 'lane_join'],
+                    right_on=['fb_region_id', 'fb_road_id', 'fb_lane'],
                     how='left',
                     suffix='_feedback'
                 )
             else:
                 joined = result_processed.join(
                     feedback_processed,
-                    left_on='road_id_join',
-                    right_on='fb_road_id',
+                    left_on=['region_id_join', 'road_id_join'],
+                    right_on=['fb_region_id', 'fb_road_id'],
                     how='left',
                     suffix='_feedback'
                 )
             
             # Debug: Show columns after join to understand what's available
-            self._emit_progress(f"🔍 Columns after road join: {', '.join(joined.columns[:20])}{'...' if len(joined.columns) > 20 else ''}")
+            self._emit_progress(f"🔍 Columns after region+road join: {', '.join(joined.columns[:20])}{'...' if len(joined.columns) > 20 else ''}")
             
             # After join, we can identify matches by checking if any feedback column has values
             # Use start_chainage_m as indicator of successful match (it will be null if no match)
             start_chainage_col = 'start_chainage_m' if 'start_chainage_m' in joined.columns else 'start_chainage_m_feedback'
-            road_matches = joined.filter(pl.col(start_chainage_col).is_not_null()).height
-            self._emit_progress(f"   • Road ID matches: {road_matches:,}/{original_row_count:,} ({road_matches/original_row_count*100:.1f}%)")
+            region_road_matches = joined.filter(pl.col(start_chainage_col).is_not_null()).height
+            self._emit_progress(f"   • Region+Road ID matches: {region_road_matches:,}/{original_row_count:,} ({region_road_matches/original_row_count*100:.1f}%)")
 
             # Filter for chainage range - check for suffix in column names
             start_chainage_col = 'start_chainage_m' if 'start_chainage_m' in joined.columns else 'start_chainage_m_feedback'
@@ -566,7 +680,18 @@ class ClientFeedbackProcessor:
             )
             
             chainage_matches = matched.height
-            self._emit_progress(f"   • Chainage range matches: {chainage_matches:,}/{road_matches:,} records")
+            self._emit_progress(f"   • Chainage range matches: {chainage_matches:,}/{region_road_matches:,} records")
+            
+            # Check for LMD records that match multiple feedback ranges
+            if chainage_matches > 0:
+                multi_match_check = matched.group_by('_row_idx').agg([pl.len().alias('match_count')])
+                records_with_multi_matches = multi_match_check.filter(pl.col('match_count') > 1).height
+                if records_with_multi_matches > 0:
+                    max_matches = multi_match_check['match_count'].max()
+                    self._emit_progress(f"   ⚠️ {records_with_multi_matches:,} LMD records matched MULTIPLE feedback ranges")
+                    self._emit_progress(f"      • Maximum matches per record: {max_matches}")
+                    self._emit_progress(f"      • Using FIRST match for each record (pl.first strategy)")
+                    logger.info(f"{records_with_multi_matches} records have multiple matches (max: {max_matches})")
 
             # Group by row index and take first match (in case of overlaps)
             # Need to check for suffix in column names after join
