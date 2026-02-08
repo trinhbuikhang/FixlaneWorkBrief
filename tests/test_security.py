@@ -3,9 +3,11 @@ Test Security Module
 Tests for utils/security.py
 """
 
-import pytest
 from pathlib import Path
-from utils.security import SecurityValidator, UserFriendlyError, InputValidator
+
+import pytest
+
+from utils.security import InputValidator, SecurityValidator, UserFriendlyError
 
 
 class TestSecurityValidator:

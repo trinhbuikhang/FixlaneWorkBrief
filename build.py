@@ -3,9 +3,11 @@
 Build script to create executable for Data Processing Tool
 """
 
-import PyInstaller.__main__
 import os
 import sys
+
+import PyInstaller.__main__
+
 
 def build_exe():
     """Build the application into a standalone executable."""

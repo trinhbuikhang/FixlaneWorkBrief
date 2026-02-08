@@ -3,13 +3,15 @@ Add Columns Processor for Data Processing Tool
 Handles adding columns from LMD data to Details data using Polars.
 """
 
-import polars as pl
-import logging
 import gc
-from typing import Optional, Callable, List, Tuple
-from pathlib import Path
+import logging
 import os
 from datetime import datetime
+from pathlib import Path
+from typing import Callable, List, Optional, Tuple
+
+# ⚡ Lazy import for Polars (heavy library)
+from utils.lazy_imports import polars as pl
 
 from utils.file_lock import FileLock, FileLockTimeout
 

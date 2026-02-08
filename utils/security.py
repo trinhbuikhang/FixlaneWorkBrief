@@ -3,9 +3,9 @@ Security validation utilities for DataCleaner application.
 Provides input validation, path sanitization, and security checks.
 """
 
-import re
-import os
 import logging
+import os
+import re
 from pathlib import Path
 from typing import List, Optional, Tuple
 
@@ -171,7 +171,7 @@ class UserFriendlyError:
         - System paths
         """
         import re
-        
+
         # Replace full Windows paths with just filename
         message = re.sub(r'[A-Za-z]:\\[^:\n]+\\([^\\:\n]+)', r'\1', message)
         
@@ -202,7 +202,7 @@ class UserFriendlyError:
         """
         import traceback
         import uuid
-        
+
         # Generate unique error ID for correlation with logs
         error_id = str(uuid.uuid4())[:8]
         UserFriendlyError._error_counter += 1

@@ -3,11 +3,13 @@ Base Processor Module
 Provides common functionality for all data processors
 """
 
-import os
 import logging
+import os
 from abc import ABC, abstractmethod
-from typing import Optional, Callable, Tuple
-import polars as pl
+from typing import Callable, Optional, Tuple
+
+# ⚡ Lazy import for Polars (heavy library)
+from utils.lazy_imports import polars as pl
 
 logger = logging.getLogger(__name__)
 

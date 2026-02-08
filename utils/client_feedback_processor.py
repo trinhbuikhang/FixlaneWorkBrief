@@ -2,11 +2,13 @@
 Optimized Client Feedback Processor for Data Processing Tool
 """
 
-import polars as pl
-import logging
 import gc
-from typing import Optional, Callable, Tuple
+import logging
 from pathlib import Path
+from typing import Callable, Optional, Tuple
+
+# ⚡ Lazy import for Polars (heavy library)
+from utils.lazy_imports import polars as pl
 
 from utils.file_lock import FileLock, FileLockTimeout
 

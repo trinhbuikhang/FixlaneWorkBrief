@@ -3,11 +3,12 @@ Timestamp detection and parsing module for Fixlane WorkBrief application.
 Handles automatic detection and parsing of various timestamp formats.
 """
 
-import pandas as pd
-import re
 import logging
-from typing import List, Dict, Optional, Tuple
+import re
 from dataclasses import dataclass
+from typing import Dict, List, Optional, Tuple
+
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 

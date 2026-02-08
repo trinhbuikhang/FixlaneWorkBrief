@@ -1,12 +1,24 @@
-import sys
 import logging
-from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QTabWidget, QLabel, QFrame
+import sys
+
 from PyQt6.QtCore import Qt
-from gui.tabs.lmd_cleaner_tab import LMDCleanerTab
-from gui.tabs.laneFix_tab import LaneFixTab
-from gui.tabs.client_feedback_tab import ClientFeedbackTab
-from gui.tabs.add_columns_tab import AddColumnsTab
-from gui.styles import apply_stylesheet, MAIN_STYLESHEET
+from PyQt6.QtWidgets import (
+    QApplication,
+    QFrame,
+    QLabel,
+    QVBoxLayout,
+    QWidget,
+)
+
+from gui.styles import MAIN_STYLESHEET, apply_stylesheet
+from gui.lazy_loader import LazyTabWidget
+
+# ⚡ LAZY IMPORTS - Tabs will be imported when needed
+# from gui.tabs.add_columns_tab import AddColumnsTab
+# from gui.tabs.client_feedback_tab import ClientFeedbackTab
+# from gui.tabs.laneFix_tab import LaneFixTab
+# from gui.tabs.lmd_cleaner_tab import LMDCleanerTab
+
 
 class DataCleanerApp(QWidget):
     def __init__(self):
@@ -49,32 +61,7 @@ class DataCleanerApp(QWidget):
             layout.setContentsMargins(20, 20, 20, 20)
             layout.setSpacing(15)
 
-            # Create tab widget
-            self.logger.info("Creating tab widget...")
-            self.tab_widget = QTabWidget()
-            layout.addWidget(self.tab_widget)
-
-            # Add LMD Cleaner tab
-            self.logger.info("Creating LMD Cleaner tab...")
-            self.lmd_cleaner_tab = LMDCleanerTab()
-            self.tab_widget.addTab(self.lmd_cleaner_tab, "LMD Cleaner")
-
-            # Add Lane Fix tab
-            self.logger.info("Creating Lane Fix tab...")
-            self.lane_fix_tab = LaneFixTab()
-            self.tab_widget.addTab(self.lane_fix_tab, "Lane Fix")
-
-            # Add Client Feedback tab
-            self.logger.info("Creating Client Feedback tab...")
-            self.client_feedback_tab = ClientFeedbackTab()
-            self.tab_widget.addTab(self.client_feedback_tab, "Client Feedback")
-
-            # Add Add Columns tab
-            self.logger.info("Creating Add Columns tab...")
-            self.add_columns_tab = AddColumnsTab()
-            self.tab_widget.addTab(self.add_columns_tab, "Add Columns")
-
-            # Global status bar at bottom
+            # Create status bar FIRST (needed by tabs)
             self.logger.info("Creating status bar...")
             status_container = QFrame()
             status_container.setObjectName("statusContainer")
@@ -87,7 +74,46 @@ class DataCleanerApp(QWidget):
             self.global_status_label = QLabel("Ready")
             self.global_status_label.setObjectName("globalStatusLabel")
             status_layout.addWidget(self.global_status_label)
+
+            # ⚡ Create LAZY tab widget - tabs loaded on demand
+            self.logger.info("Creating lazy tab widget...")
+            self.tab_widget = LazyTabWidget()
+            layout.addWidget(self.tab_widget)
+
+            # ⚡ Add tabs with LAZY LOADING - only load when user clicks
+            self.logger.info("Adding lazy tabs (not loading content yet)...")
             
+            # Tab 0: LMD Cleaner - Load immediately (default tab)
+            self.tab_widget.add_lazy_tab(
+                "LMD Cleaner",
+                lambda: self._create_lmd_cleaner_tab(),
+                load_immediately=True  # Load first tab immediately
+            )
+            
+            # Tab 1: Lane Fix - Lazy load
+            self.tab_widget.add_lazy_tab(
+                "Lane Fix",
+                lambda: self._create_lane_fix_tab(),
+                load_immediately=False
+            )
+            
+            # Tab 2: Client Feedback - Lazy load
+            self.tab_widget.add_lazy_tab(
+                "Client Feedback",
+                lambda: self._create_client_feedback_tab(),
+                load_immediately=False
+            )
+            
+            # Tab 3: Add Columns - Lazy load
+            self.tab_widget.add_lazy_tab(
+                "Add Columns",
+                lambda: self._create_add_columns_tab(),
+                load_immediately=False
+            )
+            
+            self.logger.info(f"Added {self.tab_widget.count()} lazy tabs")
+
+            # Add status bar to layout
             layout.addWidget(status_container)
 
             # Connect tab status updates to global status
@@ -103,17 +129,54 @@ class DataCleanerApp(QWidget):
             log_exception(context="DataCleanerApp.initUI")
             raise
     
+    # ⚡ TAB FACTORY METHODS - Import only when needed
+    def _create_lmd_cleaner_tab(self):
+        """Factory method to create LMD Cleaner tab"""
+        self.logger.info("Loading LMD Cleaner tab...")
+        from gui.tabs.lmd_cleaner_tab import LMDCleanerTab
+        tab = LMDCleanerTab()
+        self._connect_tab_status(tab)
+        return tab
+    
+    def _create_lane_fix_tab(self):
+        """Factory method to create Lane Fix tab"""
+        self.logger.info("Loading Lane Fix tab...")
+        from gui.tabs.laneFix_tab import LaneFixTab
+        tab = LaneFixTab()
+        self._connect_tab_status(tab)
+        return tab
+    
+    def _create_client_feedback_tab(self):
+        """Factory method to create Client Feedback tab"""
+        self.logger.info("Loading Client Feedback tab...")
+        from gui.tabs.client_feedback_tab import ClientFeedbackTab
+        tab = ClientFeedbackTab()
+        self._connect_tab_status(tab)
+        return tab
+    
+    def _create_add_columns_tab(self):
+        """Factory method to create Add Columns tab"""
+        self.logger.info("Loading Add Columns tab...")
+        from gui.tabs.add_columns_tab import AddColumnsTab
+        tab = AddColumnsTab()
+        self._connect_tab_status(tab)
+        return tab
+    
+    def _connect_tab_status(self, tab):
+        """Connect tab status label to global status"""
+        if hasattr(tab, 'status_label'):
+            tab.status_label = self.global_status_label
+    
     def connect_tab_status_updates(self):
-        """Connect all tab status labels to the global status label"""
-        # Connect each tab's status updates to global status
-        if hasattr(self.lmd_cleaner_tab, 'status_label'):
-            self.lmd_cleaner_tab.status_label = self.global_status_label
-        if hasattr(self.lane_fix_tab, 'status_label'):
-            self.lane_fix_tab.status_label = self.global_status_label
-        if hasattr(self.client_feedback_tab, 'status_label'):
-            self.client_feedback_tab.status_label = self.global_status_label
-        if hasattr(self.add_columns_tab, 'status_label'):
-            self.add_columns_tab.status_label = self.global_status_label
+        """
+        Connect all tab status labels to the global status label.
+        
+        ⚡ Note: With lazy loading, tabs are not created yet.
+        Status connection will be done in factory methods.
+        """
+        # With lazy loading, no need to connect immediately
+        # Connection will be done in _connect_tab_status()
+        pass
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

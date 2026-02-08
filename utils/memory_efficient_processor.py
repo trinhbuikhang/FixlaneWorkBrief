@@ -3,14 +3,16 @@ Memory-efficient Add Columns Processor for very large datasets (>20GB)
 Uses streaming processing and memory mapping to handle files that don't fit in RAM
 """
 
-import polars as pl
-import os
+import gc
 import logging
+import os
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional, Callable, Dict, Any
+from typing import Any, Callable, Dict, List, Optional
+
+# ⚡ Lazy import for Polars (heavy library)
+from utils.lazy_imports import polars as pl
 import psutil
-import gc
 
 logger = logging.getLogger(__name__)
 

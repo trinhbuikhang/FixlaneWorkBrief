@@ -1,22 +1,36 @@
+import gc
+import os
 import sys
-from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-    QPushButton, QFileDialog, QListWidget, QLineEdit,
-    QProgressBar, QMessageBox, QFrame, QTextEdit,
-    QSplitter, QGroupBox, QSpacerItem, QSizePolicy
-)
+from datetime import datetime
+
+import polars as pl
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QFont
-import polars as pl
-import os
-from datetime import datetime
-import gc
+from PyQt6.QtWidgets import (
+    QFileDialog,
+    QFrame,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QMessageBox,
+    QProgressBar,
+    QPushButton,
+    QSizePolicy,
+    QSpacerItem,
+    QSplitter,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
+)
 
 try:
+    import psutil
+
     from utils.add_columns_processor import AddColumnsProcessor
     from utils.memory_efficient_processor import MemoryEfficientAddColumnsProcessor
     from utils.security import SecurityValidator, UserFriendlyError
-    import psutil
 except ImportError as e:
     print(f"ERROR: Failed to import processors: {e}")
     print(f"Current working directory: {os.getcwd()}")

@@ -3,9 +3,11 @@ Data Validation Module
 Provides comprehensive validation for CSV data structures
 """
 
-import polars as pl
 import logging
-from typing import Tuple, List, Dict, Optional
+from typing import Dict, List, Optional, Tuple
+
+# ⚡ Lazy import for Polars (heavy library)
+from utils.lazy_imports import polars as pl
 
 logger = logging.getLogger(__name__)
 

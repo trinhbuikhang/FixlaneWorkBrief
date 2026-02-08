@@ -4,10 +4,10 @@ Prevents operation spam and resource exhaustion
 """
 
 import logging
-from datetime import datetime, timedelta
 from collections import defaultdict
-from typing import Tuple, Dict
+from datetime import datetime, timedelta
 from threading import Lock
+from typing import Dict, Tuple
 
 logger = logging.getLogger(__name__)
 

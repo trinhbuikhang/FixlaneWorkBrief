@@ -3,17 +3,29 @@
 Data Processing Tool
 
 A PyQt6 application for cleaning binviewer CSV data based on specific criteria.
+
+Optimization: Heavy imports are deferred until after QApplication creation
+to improve startup time and get window visible faster.
 """
 
-import sys
 import logging
-from PyQt6.QtWidgets import QApplication, QMessageBox
-from gui.main_window import DataCleanerApp
-from gui.modern_styles import MODERN_STYLESHEET
+import sys
+
+# ⚡ MINIMAL IMPORTS - Only what's needed for QApplication
+from PyQt6.QtWidgets import QApplication
+
+# ⚡ DEFERRED IMPORTS - Will be imported after QApplication is ready
+# from gui.main_window import DataCleanerApp
+# from gui.modern_styles import MODERN_STYLESHEET
+# from PyQt6.QtWidgets import QMessageBox
 
 # Import our logging setup
 try:
-    from utils.logger_setup import setup_application_logging, setup_exception_handler, get_application_logger
+    from utils.logger_setup import (
+        get_application_logger,
+        setup_application_logging,
+        setup_exception_handler,
+    )
 except ImportError as e:
     print(f"Failed to import logging setup: {e}")
     # Fallback basic logging
@@ -32,21 +44,33 @@ def main():
         logger = logging.getLogger()
     
     try:
+        # ⚡ Step 1: Create QApplication ASAP (very fast)
         logger.info("Creating QApplication...")
         app = QApplication(sys.argv)
         app.setApplicationName("Data Processing Tool")
         app.setApplicationVersion("1.0")
         app.setOrganizationName("PyDeveloper")
         
-        logger.info("Applying modern stylesheet...")
-        # Apply modern stylesheet
-        app.setStyleSheet(MODERN_STYLESHEET)
+        # ⚡ Step 2: Import heavy modules AFTER QApplication exists
+        # This allows the app to start faster and show window sooner
+        logger.info("Loading GUI modules...")
+        from gui.main_window import DataCleanerApp
+        from gui.modern_styles import MINIMAL_STYLESHEET, MODERN_STYLESHEET
+        
+        logger.info("Applying minimal stylesheet...")
+        # ⚡ Apply minimal stylesheet FIRST for fast startup
+        app.setStyleSheet(MINIMAL_STYLESHEET)
 
         logger.info("Creating main window...")
         window = DataCleanerApp()
         
         logger.info("Showing main window...")
         window.show()
+        
+        # ⚡ Apply full stylesheet AFTER window is visible
+        # This doesn't block the UI from appearing
+        logger.info("Loading full stylesheet...")
+        app.setStyleSheet(MODERN_STYLESHEET)
 
         logger.info("Starting event loop...")
         result = app.exec()
@@ -68,6 +92,9 @@ def main():
         # Show error dialog if possible
         try:
             if 'app' in locals():
+                # ⚡ Import QMessageBox only when needed (error case)
+                from PyQt6.QtWidgets import QMessageBox
+                
                 msg = QMessageBox()
                 msg.setIcon(QMessageBox.Icon.Critical)
                 msg.setWindowTitle("Fatal Error")

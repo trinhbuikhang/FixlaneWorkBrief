@@ -7,8 +7,10 @@ import hashlib
 import logging
 import random
 from pathlib import Path
-from typing import Tuple, Optional
-import polars as pl
+from typing import Optional, Tuple
+
+# ⚡ Lazy import for Polars (heavy library)
+from utils.lazy_imports import polars as pl
 
 logger = logging.getLogger(__name__)
 

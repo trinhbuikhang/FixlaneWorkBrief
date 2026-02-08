@@ -3,9 +3,11 @@ Test File Locking Module
 Tests for utils/file_lock.py
 """
 
-import pytest
 import time
 from pathlib import Path
+
+import pytest
+
 from utils.file_lock import FileLock, FileLockTimeout, is_file_locked
 
 

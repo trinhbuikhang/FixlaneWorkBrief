@@ -3,14 +3,15 @@ Enhanced Logging with Context and Correlation IDs
 Provides contextual logging for better debugging and tracking
 """
 
-import logging
-import uuid
 import json
-import psutil
+import logging
 import traceback
+import uuid
 from datetime import datetime
-from typing import Dict, Any, Optional
 from pathlib import Path
+from typing import Any, Dict, Optional
+
+import psutil
 
 
 class ContextLogger:

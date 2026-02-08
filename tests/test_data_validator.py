@@ -3,8 +3,9 @@ Test Data Validator Module
 Tests for utils/data_validator.py
 """
 
-import pytest
 import polars as pl
+import pytest
+
 from utils.data_validator import DataValidator
 
 

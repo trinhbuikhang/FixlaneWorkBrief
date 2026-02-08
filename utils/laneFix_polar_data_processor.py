@@ -3,18 +3,19 @@ Data processing module for Fixlane WorkBrief application - Polars Optimized Vers
 Provides classes and methods for lane fixing and workbrief processing operations using Polars.
 """
 
-import polars as pl
-import os
-import logging
 import gc
-from pathlib import Path
-from typing import Optional, Tuple, Callable
+import logging
+import os
 from datetime import datetime
+from pathlib import Path
+from typing import Callable, Optional, Tuple
+
+# ⚡ Lazy import for Polars (heavy library)
+from utils.lazy_imports import polars as pl
 
 from config.laneFix_config import Config, Messages
-from utils.timestamp_handler import timestamp_handler
 from utils.file_lock import FileLock, FileLockTimeout
-
+from utils.timestamp_handler import timestamp_handler
 
 logger = logging.getLogger(__name__)
 

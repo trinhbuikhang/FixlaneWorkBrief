@@ -4,8 +4,10 @@ Script to check the headers of the chunked processing output CSV file.
 This verifies that the output contains the correct columns: Ignore and InBrief.
 """
 
-import pandas as pd
 import os
+
+import pandas as pd
+
 
 def check_output_headers():
     """Check the headers of the chunked processing output file."""

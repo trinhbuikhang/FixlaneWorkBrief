@@ -3,10 +3,11 @@ Cancellation Handler Module
 Provides GUI integration for operation cancellation.
 """
 
-from typing import Optional, Callable
-from PyQt6.QtCore import QObject, pyqtSignal, QThread
-from PyQt6.QtWidgets import QPushButton, QMessageBox, QWidget
 import logging
+from typing import Callable, Optional
+
+from PyQt6.QtCore import QObject, QThread, pyqtSignal
+from PyQt6.QtWidgets import QMessageBox, QPushButton, QWidget
 
 logger = logging.getLogger(__name__)
 
@@ -264,9 +265,10 @@ class ProgressTracker:
 
 if __name__ == '__main__':
     # Example usage
-    from PyQt6.QtWidgets import QApplication, QPushButton
     import sys
     import time
+
+    from PyQt6.QtWidgets import QApplication, QPushButton
     
     logging.basicConfig(level=logging.DEBUG)
     

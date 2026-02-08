@@ -3,12 +3,14 @@ Test Cancellation Handler Module
 Tests for utils/cancellation_handler.py
 """
 
-import pytest
 import time
+
+import pytest
+
 from utils.cancellation_handler import (
-    CancellationToken,
     CancellationRequested,
-    ProgressTracker
+    CancellationToken,
+    ProgressTracker,
 )
 
 

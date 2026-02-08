@@ -1,16 +1,28 @@
-import sys
+import gc
+import logging
 import os
-from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-    QLineEdit, QPushButton, QFileDialog, QTextEdit,
-    QProgressBar, QMessageBox, QTabWidget, QGroupBox
-)
+import sys
+import time
+
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
+from PyQt6.QtWidgets import (
+    QFileDialog,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QProgressBar,
+    QPushButton,
+    QTabWidget,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
+)
+
 from utils.data_processor import process_data
 from utils.security import SecurityValidator, UserFriendlyError
-import logging
-import gc
-import time
+
 
 class QTextEditHandler(logging.Handler):
     """Custom logging handler to write logs to QTextEdit."""

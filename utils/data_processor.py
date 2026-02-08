@@ -1,10 +1,11 @@
+import gc
 import logging
 import os
 import time
-import gc
 from datetime import datetime
 
-import polars as pl
+# ⚡ Lazy import for Polars (heavy library)
+from utils.lazy_imports import polars as pl
 import psutil
 
 from utils.file_lock import FileLock, FileLockTimeout

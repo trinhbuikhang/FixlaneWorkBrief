@@ -4,9 +4,9 @@ Provides utilities for proper logging level usage across the application.
 """
 
 import logging
-from typing import Optional, Any
-from functools import wraps
 import time
+from functools import wraps
+from typing import Any, Optional
 
 
 class LoggingHelper:
@@ -163,8 +163,9 @@ class LoggingHelper:
             context: Context description
         """
         try:
-            import psutil
             import os
+
+            import psutil
             
             process = psutil.Process(os.getpid())
             memory_info = process.memory_info()

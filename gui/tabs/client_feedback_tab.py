@@ -1,15 +1,28 @@
-import sys
-from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-    QLineEdit, QPushButton, QFileDialog, QTextEdit,
-    QProgressBar, QMessageBox, QGroupBox, QListWidget,
-    QListWidgetItem, QCheckBox, QFrame, QSplitter
-)
-from PyQt6.QtCore import Qt
 import logging
-import polars as pl
 import os
+import sys
 from datetime import datetime
+
+import polars as pl
+from PyQt6.QtCore import Qt
+from PyQt6.QtWidgets import (
+    QCheckBox,
+    QFileDialog,
+    QFrame,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QListWidgetItem,
+    QMessageBox,
+    QProgressBar,
+    QPushButton,
+    QSplitter,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
+)
 
 try:
     from utils.client_feedback_processor import ClientFeedbackProcessor

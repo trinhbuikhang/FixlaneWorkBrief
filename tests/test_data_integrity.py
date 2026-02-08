@@ -3,9 +3,11 @@ Test Data Integrity Module
 Tests for utils/data_integrity.py
 """
 
-import pytest
-import polars as pl
 from pathlib import Path
+
+import polars as pl
+import pytest
+
 from utils.data_integrity import DataIntegrityChecker
 
 

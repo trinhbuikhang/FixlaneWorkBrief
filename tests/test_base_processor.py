@@ -3,9 +3,14 @@ Test Base Processor Module
 Tests for utils/base_processor.py
 """
 
-import pytest
 import polars as pl
-from utils.base_processor import BaseProcessor, CancellableProcessor, ProcessingCancelled
+import pytest
+
+from utils.base_processor import (
+    BaseProcessor,
+    CancellableProcessor,
+    ProcessingCancelled,
+)
 
 
 class TestProcessor(BaseProcessor):

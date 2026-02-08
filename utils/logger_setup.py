@@ -6,9 +6,10 @@ Provides comprehensive logging for both development and production (EXE) environ
 import logging
 import os
 import sys
+import traceback
 from datetime import datetime
 from pathlib import Path
-import traceback
+
 
 class ApplicationLogger:
     """Centralized logging setup for the application"""

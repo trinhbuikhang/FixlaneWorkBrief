@@ -3,13 +3,15 @@ Safe File Writing with Automatic Backup
 Provides utilities for safely writing files with automatic backups
 """
 
-import shutil
-import os
 import logging
-from pathlib import Path
+import os
+import shutil
 from datetime import datetime
+from pathlib import Path
 from typing import Callable, Optional
-import polars as pl
+
+# ⚡ Lazy import for Polars (heavy library)
+from utils.lazy_imports import polars as pl
 
 from utils.file_lock import FileLock, FileLockTimeout
 

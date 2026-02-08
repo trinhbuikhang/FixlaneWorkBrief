@@ -3,8 +3,10 @@ Test Rate Limiter Module
 Tests for utils/rate_limiter.py
 """
 
-import pytest
 import time
+
+import pytest
+
 from utils.rate_limiter import RateLimiter
 
 

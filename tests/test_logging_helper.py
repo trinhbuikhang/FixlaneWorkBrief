@@ -3,8 +3,10 @@ Test Logging Helper Module
 Tests for utils/logging_helper.py
 """
 
-import pytest
 import logging
+
+import pytest
+
 from utils.logging_helper import LoggingHelper, LogLevel
 
 

@@ -3,10 +3,10 @@ Cross-Platform File Locking Module
 Provides file locking mechanism to prevent concurrent writes
 """
 
+import logging
 import os
 import platform
 import time
-import logging
 from pathlib import Path
 from typing import Optional
 

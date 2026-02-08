@@ -2,6 +2,46 @@
 Modern Professional Stylesheet for Data Processing Tool
 """
 
+# ⚡ MINIMAL STYLESHEET - Only essential styles for fast startup
+# Loaded immediately to get window visible ASAP
+MINIMAL_STYLESHEET = """
+/* Essential styles only - for fast startup */
+QMainWindow, QWidget {
+    background-color: #FAFAFA;
+    font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+    font-size: 12px;
+}
+
+QTabWidget::pane {
+    background-color: white;
+    border: 1px solid #E1E1E1;
+}
+
+QTabBar::tab {
+    background-color: #F8F8F8;
+    padding: 8px 16px;
+}
+
+QTabBar::tab:selected {
+    background-color: white;
+    color: #0078D4;
+}
+
+QPushButton {
+    background-color: #0078D4;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+}
+
+QLabel {
+    color: #323130;
+}
+"""
+
+# ⚡ FULL STYLESHEET - Complete styling loaded after window shown
+# This can take longer without impacting perceived startup time
 MODERN_STYLESHEET = """
 /* Main Application Styling */
 QMainWindow {

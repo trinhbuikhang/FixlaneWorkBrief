@@ -5,10 +5,11 @@ Prevents resource exhaustion and DoS attacks
 
 import logging
 import signal
-import psutil
 from contextlib import contextmanager
-from typing import Optional
 from datetime import datetime
+from typing import Optional
+
+import psutil
 
 logger = logging.getLogger(__name__)
 

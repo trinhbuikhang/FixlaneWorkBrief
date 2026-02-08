@@ -1,21 +1,33 @@
-import sys
-from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-    QLineEdit, QPushButton, QFileDialog, QTextEdit,
-    QProgressBar, QMessageBox, QComboBox, QCheckBox,
-    QGroupBox, QRadioButton, QButtonGroup
-)
-from PyQt6.QtCore import Qt
 import logging
-import polars as pl
 import os
+import sys
+
+import polars as pl
+from PyQt6.QtCore import Qt
+from PyQt6.QtWidgets import (
+    QButtonGroup,
+    QCheckBox,
+    QComboBox,
+    QFileDialog,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QProgressBar,
+    QPushButton,
+    QRadioButton,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
+)
 
 try:
     from config.laneFix_config import Config, Messages
     from utils.laneFix_polar_data_processor import (
+        PolarsCombinedProcessor,
         PolarsLaneFixProcessor,
         PolarsWorkbriefProcessor,
-        PolarsCombinedProcessor
     )
     from utils.security import SecurityValidator, UserFriendlyError
 except ImportError as e:

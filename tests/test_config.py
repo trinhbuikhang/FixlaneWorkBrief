@@ -3,8 +3,10 @@ Test Configuration Module
 Tests for config/app_config.py
 """
 
-import pytest
 import os
+
+import pytest
+
 from config.app_config import AppConfig
 
 
