@@ -112,3 +112,8 @@ dmypy.json
 
 # Test data
 testdata/
+
+# Debug and test scripts
+debug_*.py
+test_*.py
+check_*.py
