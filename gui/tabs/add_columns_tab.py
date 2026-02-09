@@ -67,12 +67,6 @@ class AddColumnsTab(QWidget):
         title_label.setObjectName("titleLabel")
         header_layout.addWidget(title_label)
 
-        # Description - More compact
-        desc_label = QLabel("Add selected columns from LMD data using intelligent timestamp matching")
-        desc_label.setWordWrap(True)
-        desc_label.setObjectName("descriptionLabel")
-        header_layout.addWidget(desc_label)
-
         layout.addLayout(header_layout)
 
         # File Selection - Standardized layout
@@ -144,7 +138,7 @@ class AddColumnsTab(QWidget):
         # Controls header
         controls_layout = QHBoxLayout()
         columns_header = QLabel("Available Columns")
-        columns_header.setStyleSheet("font-weight: 600; font-size: 13px; color: #323130;")
+        columns_header.setStyleSheet("font-weight: 600; font-size: 13px; color: #6d4847;")
         controls_layout.addWidget(columns_header)
         
         columns_layout.addLayout(controls_layout)
@@ -157,7 +151,7 @@ class AddColumnsTab(QWidget):
 
         # Selection counter
         self.selection_label = QLabel("No columns available")
-        self.selection_label.setStyleSheet("font-size: 11px; color: #605E5C; padding: 8px;")
+        self.selection_label.setStyleSheet("font-size: 11px; color: #8b5e5d; padding: 8px;")
         columns_layout.addWidget(self.selection_label)
         
         columns_group.setLayout(columns_layout)

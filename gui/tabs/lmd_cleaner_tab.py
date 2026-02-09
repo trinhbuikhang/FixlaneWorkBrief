@@ -138,19 +138,6 @@ class LMDCleanerTab(QWidget):
         title_label.setObjectName("titleLabel")
         layout.addWidget(title_label)
 
-        # Description
-        desc_label = QLabel(
-            "This tool cleans LMD data by applying the following filters:\n"
-            "- Remove rows with empty RawSlope170 and RawSlope270\n"
-            "- Remove rows where TrailingFactor < 0.15\n"
-            "- Remove rows where abs(tsdSlopeMinY)/tsdSlopeMaxY < 0.15\n"
-            "- Remove rows where Lane contains 'SK'\n"
-            "- Remove rows where Ignore is true"
-        )
-        desc_label.setWordWrap(True)
-        desc_label.setObjectName("descriptionLabel")
-        layout.addWidget(desc_label)
-
         # File Selection GroupBox
         files_group = QGroupBox("File Selection")
         files_layout = QVBoxLayout(files_group)
@@ -223,8 +210,11 @@ class LMDCleanerTab(QWidget):
         self.setLayout(layout)
 
     def select_input(self):
+        # Set default directory to J:/Processing if it exists
+        import os
+        default_dir = "J:/Processing" if os.path.exists("J:/Processing") else ""
         file_name, _ = QFileDialog.getOpenFileName(
-            self, "Select Input CSV File", "", "CSV Files (*.csv);;All Files (*)"
+            self, "Select Input CSV File", default_dir, "CSV Files (*.csv);;All Files (*)"
         )
         if file_name:
             # Validate file path

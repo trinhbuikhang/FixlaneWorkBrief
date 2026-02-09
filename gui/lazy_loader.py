@@ -9,6 +9,7 @@ import logging
 from typing import Dict, Callable, Optional
 from PyQt6.QtWidgets import QWidget, QTabWidget, QVBoxLayout, QLabel
 from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QIcon
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +40,12 @@ class LazyTabWidget(QTabWidget):
         # Tab names for logging
         self._tab_names: Dict[int, str] = {}
         
+        # Tab icons: {index: QIcon}
+        self._tab_icons: Dict[int, Optional[QIcon]] = {}
+        
+        # Tab tooltips: {index: tooltip_text}
+        self._tab_tooltips: Dict[int, Optional[str]] = {}
+        
         # Connect signal
         self.currentChanged.connect(self._on_tab_changed)
         
@@ -48,7 +55,9 @@ class LazyTabWidget(QTabWidget):
         self, 
         tab_name: str, 
         factory: Callable[[], QWidget],
-        load_immediately: bool = False
+        load_immediately: bool = False,
+        icon: Optional[QIcon] = None,
+        tooltip: Optional[str] = None
     ) -> int:
         """
         Add a tab with lazy loading.
@@ -57,6 +66,8 @@ class LazyTabWidget(QTabWidget):
             tab_name: Display name of the tab
             factory: Function that returns the tab widget (lambda: TabClass())
             load_immediately: True to load immediately, False for lazy loading
+            icon: Optional icon for the tab
+            tooltip: Optional tooltip text for the tab
         
         Returns:
             Index of the added tab
@@ -64,12 +75,21 @@ class LazyTabWidget(QTabWidget):
         # Create placeholder widget
         placeholder = self._create_placeholder_widget(tab_name)
         
-        # Add placeholder to tab widget
-        index = self.addTab(placeholder, tab_name)
+        # Add placeholder to tab widget (with or without icon)
+        if icon:
+            index = self.addTab(placeholder, icon, tab_name)
+        else:
+            index = self.addTab(placeholder, tab_name)
         
-        # Store factory and name
+        # Set tooltip if provided
+        if tooltip:
+            self.setTabToolTip(index, tooltip)
+        
+        # Store factory, name, icon, and tooltip
         self._tab_factories[index] = factory
         self._tab_names[index] = tab_name
+        self._tab_icons[index] = icon
+        self._tab_tooltips[index] = tooltip
         
         logger.debug(f"Added lazy tab '{tab_name}' at index {index}")
         
@@ -138,12 +158,32 @@ class LazyTabWidget(QTabWidget):
             # Call factory to create real widget
             widget = self._tab_factories[index]()
             
+            # Save current tab index to restore after replacement
+            current_index = self.currentIndex()
+            
+            # Get stored icon and tooltip
+            icon = self._tab_icons.get(index)
+            tooltip = self._tab_tooltips.get(index)
+            
             # Block signals during tab replacement to prevent recursion
             self.blockSignals(True)
             
             # Replace placeholder with real widget
             self.removeTab(index)
-            self.insertTab(index, widget, tab_name)
+            
+            # Insert with icon if available
+            if icon:
+                self.insertTab(index, widget, icon, tab_name)
+            else:
+                self.insertTab(index, widget, tab_name)
+            
+            # Restore tooltip if available
+            if tooltip:
+                self.setTabToolTip(index, tooltip)
+            
+            # Restore current tab if it was the one we just loaded
+            if current_index == index:
+                self.setCurrentIndex(index)
             
             # Re-enable signals
             self.blockSignals(False)
@@ -156,13 +196,28 @@ class LazyTabWidget(QTabWidget):
         except Exception as e:
             logger.error(f"Failed to load tab '{tab_name}': {e}")
             
+            # Save current tab index
+            current_index = self.currentIndex()
+            
+            # Get stored icon
+            icon = self._tab_icons.get(index)
+            
             # Block signals during error widget insertion
             self.blockSignals(True)
             
             # Show error in placeholder
             error_widget = self._create_error_widget(tab_name, str(e))
             self.removeTab(index)
-            self.insertTab(index, error_widget, f"⚠️ {tab_name}")
+            
+            # Insert error widget with icon if available
+            if icon:
+                self.insertTab(index, error_widget, icon, f"⚠️ {tab_name}")
+            else:
+                self.insertTab(index, error_widget, f"⚠️ {tab_name}")
+            
+            # Restore current tab if it was the one that failed
+            if current_index == index:
+                self.setCurrentIndex(index)
             
             # Re-enable signals
             self.blockSignals(False)

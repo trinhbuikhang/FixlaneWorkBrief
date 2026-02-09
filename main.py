@@ -55,11 +55,15 @@ def main():
         # This allows the app to start faster and show window sooner
         logger.info("Loading GUI modules...")
         from gui.main_window import DataCleanerApp
-        from gui.modern_styles import MINIMAL_STYLESHEET, MODERN_STYLESHEET
+        from gui.rose_gold_styles import ROSE_GOLD_STYLESHEET
+        from gui.icons import get_app_icon
         
-        logger.info("Applying minimal stylesheet...")
-        # ⚡ Apply minimal stylesheet FIRST for fast startup
-        app.setStyleSheet(MINIMAL_STYLESHEET)
+        logger.info("Setting application icon...")
+        app.setWindowIcon(get_app_icon())
+        
+        logger.info("Applying Rose Gold stylesheet...")
+        # Apply elegant rose gold color scheme
+        app.setStyleSheet(ROSE_GOLD_STYLESHEET)
 
         logger.info("Creating main window...")
         window = DataCleanerApp()
@@ -67,10 +71,13 @@ def main():
         logger.info("Showing main window...")
         window.show()
         
-        # ⚡ Apply full stylesheet AFTER window is visible
-        # This doesn't block the UI from appearing
-        logger.info("Loading full stylesheet...")
-        app.setStyleSheet(MODERN_STYLESHEET)
+        # Close splash screen if running from PyInstaller bundle
+        try:
+            import pyi_splash
+            pyi_splash.close()
+            logger.info("Splash screen closed")
+        except:
+            pass  # Not running from PyInstaller or splash not enabled
 
         logger.info("Starting event loop...")
         result = app.exec()

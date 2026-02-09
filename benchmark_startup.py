@@ -115,10 +115,10 @@ def benchmark_full_startup():
     
     # Step 4: Import and apply stylesheet
     bench.mark("Import stylesheet")
-    from gui.modern_styles import MODERN_STYLESHEET
+    from gui.styles import MATERIAL_FULL
     
     bench.mark("Apply stylesheet")
-    app.setStyleSheet(MODERN_STYLESHEET)
+    app.setStyleSheet(MATERIAL_FULL)
     
     # Step 5: Create main window
     bench.mark("Create main window")

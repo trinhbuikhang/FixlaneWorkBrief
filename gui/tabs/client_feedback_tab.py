@@ -64,12 +64,6 @@ class ClientFeedbackTab(QWidget):
         title_label.setObjectName("titleLabel")
         layout.addWidget(title_label)
 
-        # Description
-        desc_label = QLabel("This tool adds client feedback data to LMD files by matching road sections and adding treatment information.")
-        desc_label.setWordWrap(True)
-        desc_label.setObjectName("descriptionLabel")
-        layout.addWidget(desc_label)
-
         # File Selection GroupBox
         files_group = QGroupBox("File Selection")
         files_layout = QVBoxLayout(files_group)
@@ -136,7 +130,7 @@ class ClientFeedbackTab(QWidget):
         # Controls header
         controls_layout = QHBoxLayout()
         columns_header = QLabel("Available Columns")
-        columns_header.setStyleSheet("font-weight: 600; font-size: 13px; color: #323130;")
+        columns_header.setStyleSheet("font-weight: 600; font-size: 13px; color: #6d4847;")
         controls_layout.addWidget(columns_header)
         
         columns_layout.addLayout(controls_layout)
@@ -149,7 +143,7 @@ class ClientFeedbackTab(QWidget):
 
         # Selection counter
         self.selection_label = QLabel("No columns available")
-        self.selection_label.setStyleSheet("font-size: 11px; color: #605E5C; padding: 8px;")
+        self.selection_label.setStyleSheet("font-size: 11px; color: #8b5e5d; padding: 8px;")
         columns_layout.addWidget(self.selection_label)
         
         columns_group.setLayout(columns_layout)
@@ -210,8 +204,11 @@ class ClientFeedbackTab(QWidget):
             
             # System columns that should not be included in selection
             system_columns = {
-                'road_id', 'region_id', 'project_id', 'Road Name',
-                'Start Chainage (km)', 'End Chainage (km)', 'Start Chainage', 'End Chainage'
+                'road_id', 'region_id', 'project_id', 'Road Name', 'Region', 'Region ID',
+                'Start Chainage (km)', 'End Chainage (km)', 'Start Chainage', 'End Chainage',
+                'locFrom', 'locTo', 'LocFrom', 'LocTo',  # Chainage variants
+                'wheelpath', 'Wheelpath', 'WheelPath', 'WHEELPATH',  # Wheelpath matching column
+                'Lanes', 'lanes', 'LANES', 'Lane_Type'  # Lanes matching column (plural - for 'All' logic)
             }
 
             self.columns_list.clear()
@@ -223,7 +220,6 @@ class ClientFeedbackTab(QWidget):
                     
                     # Check if this is a default column
                     if col in default_columns:
-                        item.setSelected(True)
                         # Style default columns differently
                         item.setToolTip(f"Default column: {col}")
                         # Make default columns bold
@@ -235,6 +231,10 @@ class ClientFeedbackTab(QWidget):
                         item.setToolTip(f"Additional column found in file: {col}")
                     
                     self.columns_list.addItem(item)
+                    
+                    # Set selection AFTER adding to list
+                    if col in default_columns:
+                        item.setSelected(True)
             
             self.update_selection_count()
             
@@ -285,8 +285,11 @@ class ClientFeedbackTab(QWidget):
         QApplication.processEvents()
 
     def select_lmd_file(self):
+        # Set default directory to J:/Processing if it exists
+        import os
+        default_dir = "J:/Processing" if os.path.exists("J:/Processing") else ""
         file_name, _ = QFileDialog.getOpenFileName(
-            self, "Select Combined LMD CSV File", "", "CSV Files (*.csv);;All Files (*)"
+            self, "Select Combined LMD CSV File", default_dir, "CSV Files (*.csv);;All Files (*)"
         )
         if file_name:
             # Validate file path
@@ -301,8 +304,11 @@ class ClientFeedbackTab(QWidget):
             # File selected - ready for processing (output will be auto-generated)
 
     def select_feedback_file(self):
+        # Set default directory to J:/Processing if it exists
+        import os
+        default_dir = "J:/Processing" if os.path.exists("J:/Processing") else ""
         file_name, _ = QFileDialog.getOpenFileName(
-            self, "Select Client Feedback CSV File", "", "CSV Files (*.csv);;All Files (*)"
+            self, "Select Client Feedback CSV File", default_dir, "CSV Files (*.csv);;All Files (*)"
         )
         if file_name:
             # Validate file path

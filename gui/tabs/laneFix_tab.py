@@ -68,12 +68,6 @@ class LaneFixTab(QWidget):
         title_label.setObjectName("titleLabel")
         layout.addWidget(title_label)
 
-        # Description
-        desc_label = QLabel("This tool processes lane fixes and workbrief data by matching with LMD files and applying corrections.")
-        desc_label.setWordWrap(True)
-        desc_label.setObjectName("descriptionLabel")
-        layout.addWidget(desc_label)
-
         # Processing mode selection
         mode_group = QGroupBox("Processing Mode")
         mode_layout = QVBoxLayout()
@@ -235,8 +229,11 @@ class LaneFixTab(QWidget):
             self.process_btn.setText("Complete Processing")
 
     def select_lmd_file(self):
+        # Set default directory to J:/Processing if it exists
+        import os
+        default_dir = "J:/Processing" if os.path.exists("J:/Processing") else ""
         file_name, _ = QFileDialog.getOpenFileName(
-            self, "Select Combined LMD CSV File", "", "CSV Files (*.csv);;All Files (*)"
+            self, "Select Combined LMD CSV File", default_dir, "CSV Files (*.csv);;All Files (*)"
         )
         if file_name:
             # Validate file path
@@ -256,8 +253,11 @@ class LaneFixTab(QWidget):
             self.output_edit.setText(f"{base_name}_{suffix}.csv")
 
     def select_lane_file(self):
+        # Set default directory to J:/Processing if it exists
+        import os
+        default_dir = "J:/Processing" if os.path.exists("J:/Processing") else ""
         file_name, _ = QFileDialog.getOpenFileName(
-            self, "Select Lane Fixes CSV File", "", "CSV Files (*.csv);;All Files (*)"
+            self, "Select Lane Fixes CSV File", default_dir, "CSV Files (*.csv);;All Files (*)"
         )
         if file_name:
             # Validate file path
@@ -271,8 +271,11 @@ class LaneFixTab(QWidget):
             self.lane_edit.setText(str(validated_path))
 
     def select_workbrief_file(self):
+        # Set default directory to J:/Processing if it exists
+        import os
+        default_dir = "J:/Processing" if os.path.exists("J:/Processing") else ""
         file_name, _ = QFileDialog.getOpenFileName(
-            self, "Select Workbrief CSV File", "", "CSV Files (*.csv);;All Files (*)"
+            self, "Select Workbrief CSV File", default_dir, "CSV Files (*.csv);;All Files (*)"
         )
         if file_name:
             # Validate file path

@@ -68,11 +68,19 @@ EXCLUDE_MODULES = [
 def build_optimized_exe():
     """Build optimized executable with minimal dependencies"""
     
+    import os
+    
     print("=" * 70)
     print("OPTIMIZED BUILD - Data Processing Tool")
     print("=" * 70)
     print(f"\nExcluding {len(EXCLUDE_MODULES)} unnecessary modules...")
     print("\nBuilding optimized executable...\n")
+    
+    # Get script directory
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    icon_folder = os.path.join(script_dir, 'gui', 'Icon')
+    icon_path = os.path.join(icon_folder, 'data processing.ico')
+    splash_path = os.path.join(script_dir, 'splash.png')
     
     # Build exclude arguments
     exclude_args = []
@@ -98,9 +106,24 @@ def build_optimized_exe():
         '--strip',  # Strip debug symbols
         '--noupx',  # Disable UPX (can cause issues)
         
+        # Add icon folder as data
+        f'--add-data={icon_folder};gui/Icon' if sys.platform == 'win32' else f'--add-data={icon_folder}:gui/Icon',
+        
+        # Add app icon
+        f'--icon={icon_path}',
+        
         # Add exclude arguments
         *exclude_args,
     ]
+    
+    # Add splash screen if available
+    if os.path.exists(splash_path):
+        args.insert(-len(exclude_args), f'--splash={splash_path}')
+        print(f"✓ Splash screen found: {splash_path}")
+        print("  App will show splash screen immediately on startup!\n")
+    else:
+        print("⚠ No splash screen found. Run 'python create_splash.py' to create one.")
+        print("  Splash screen makes the app appear faster on slow systems.\n")
     
     try:
         PyInstaller.__main__.run(args)

@@ -10,8 +10,11 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from gui.styles import MAIN_STYLESHEET, apply_stylesheet
 from gui.lazy_loader import LazyTabWidget
+from gui.icons import get_tab_icon
+
+# Note: Stylesheet is now applied in main.py for better startup performance
+# No need to import or apply stylesheet here
 
 # ⚡ LAZY IMPORTS - Tabs will be imported when needed
 # from gui.tabs.add_columns_tab import AddColumnsTab
@@ -37,7 +40,11 @@ class DataCleanerApp(QWidget):
     def initUI(self):
         try:
             self.logger.info("Setting window title and geometry...")
-            self.setWindowTitle("Data Processing Tool")
+            self.setWindowTitle("Data Processing Tool v2.0")
+            
+            # Set window icon
+            from gui.icons import get_app_icon
+            self.setWindowIcon(get_app_icon())
             
             # Auto-size to half screen width and 90% screen height
             from PyQt6.QtWidgets import QApplication
@@ -53,9 +60,7 @@ class DataCleanerApp(QWidget):
             self.setMinimumSize(800, 600)  # Minimum size for usability
             self.logger.info(f"Window geometry set: {width}x{height} at ({x}, {y})")
 
-            # Apply the modern stylesheet
-            self.logger.info("Applying stylesheet...")
-            apply_stylesheet(self)
+            # Note: Stylesheet is applied in main.py for optimal startup performance
 
             layout = QVBoxLayout()
             layout.setContentsMargins(20, 20, 20, 20)
@@ -87,28 +92,45 @@ class DataCleanerApp(QWidget):
             self.tab_widget.add_lazy_tab(
                 "LMD Cleaner",
                 lambda: self._create_lmd_cleaner_tab(),
-                load_immediately=True  # Load first tab immediately
+                load_immediately=True,  # Load first tab immediately
+                icon=get_tab_icon("LMD Cleaner"),
+                tooltip="Clean and process LMD survey data - filters invalid records and adds calculated fields"
             )
             
             # Tab 1: Lane Fix - Lazy load
             self.tab_widget.add_lazy_tab(
                 "Lane Fix",
                 lambda: self._create_lane_fix_tab(),
-                load_immediately=False
+                load_immediately=False,
+                icon=get_tab_icon("Lane Fix"),
+                tooltip="Fix lane numbering and chainage issues in LMD data using reference coordinates"
             )
             
             # Tab 2: Client Feedback - Lazy load
             self.tab_widget.add_lazy_tab(
                 "Client Feedback",
                 lambda: self._create_client_feedback_tab(),
-                load_immediately=False
+                load_immediately=False,
+                icon=get_tab_icon("Client Feedback"),
+                tooltip="Match and merge client feedback data with LMD records based on region, road, and chainage"
             )
             
             # Tab 3: Add Columns - Lazy load
             self.tab_widget.add_lazy_tab(
                 "Add Columns",
                 lambda: self._create_add_columns_tab(),
-                load_immediately=False
+                load_immediately=False,
+                icon=get_tab_icon("Add Columns"),
+                tooltip="Add custom columns to LMD data from external CSV files based on matching criteria"
+            )
+            
+            # Tab 4: Help - Lazy load
+            self.tab_widget.add_lazy_tab(
+                "Help",
+                lambda: self._create_help_tab(),
+                load_immediately=False,
+                icon=get_tab_icon("Help"),
+                tooltip="User guide and documentation - learn how to use each processing tool effectively"
             )
             
             self.logger.info(f"Added {self.tab_widget.count()} lazy tabs")
@@ -161,6 +183,12 @@ class DataCleanerApp(QWidget):
         tab = AddColumnsTab()
         self._connect_tab_status(tab)
         return tab
+    
+    def _create_help_tab(self):
+        """Factory method to create Help tab"""
+        self.logger.info("Loading Help tab...")
+        from gui.tabs.help_tab import HelpTab
+        return HelpTab()  # Help tab doesn't have status updates
     
     def _connect_tab_status(self, tab):
         """Connect tab status label to global status"""

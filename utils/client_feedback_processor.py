@@ -366,6 +366,52 @@ class ClientFeedbackProcessor:
                 self._emit_progress(f"   • Feedback Lane column: '{feedback_lane_col}'")
             else:
                 self._emit_progress(f"ℹ️ Lane column not found in both files - using road+chainage matching only")
+            
+            # Find wheelpath column for optional wheelpath-based matching
+            wheelpath_variants = ['wheelpath', 'Wheelpath', 'WheelPath', 'WHEELPATH', 'wheel_path', 'Wheel_Path']
+            input_wheelpath_col = None
+            feedback_wheelpath_col = None
+            
+            for variant in wheelpath_variants:
+                if variant in result_df.columns and input_wheelpath_col is None:
+                    input_wheelpath_col = variant
+                if variant in feedback_df.columns and feedback_wheelpath_col is None:
+                    feedback_wheelpath_col = variant
+            
+            if input_wheelpath_col and feedback_wheelpath_col:
+                self._emit_progress(f"✓ Wheelpath column detected - will use wheelpath-based matching")
+                self._emit_progress(f"   • LMD Wheelpath column: '{input_wheelpath_col}'")
+                self._emit_progress(f"   • Feedback Wheelpath column: '{feedback_wheelpath_col}'")
+                self._emit_progress(f"   • Logic: 'Both' matches all, otherwise exact match (LWP/RWP)")
+                self._emit_progress(f"   • Auto-normalize: L→LWP, R→RWP")
+            else:
+                self._emit_progress(f"ℹ️ Wheelpath column not found in both files - skipping wheelpath matching")
+            
+            # Find Lanes column (different from Lane - this is for All/specific lanes)
+            # LMD uses 'Lane' column (L1, L2, R1, R2), Feedback uses 'Lanes' column (All or L1, L2, etc.)
+            feedback_lanes_variants = ['Lanes', 'lanes', 'LANES', 'Lane_Type', 'lane_type']
+            input_lanes_col = None
+            feedback_lanes_col = None
+            
+            # For LMD: find 'Lane' column (reuse lane_variants from earlier)
+            for variant in lane_variants:
+                if variant in result_df.columns and input_lanes_col is None:
+                    input_lanes_col = variant
+                    break
+            
+            # For Feedback: find 'Lanes' column
+            for variant in feedback_lanes_variants:
+                if variant in feedback_df.columns and feedback_lanes_col is None:
+                    feedback_lanes_col = variant
+                    break
+            
+            if input_lanes_col and feedback_lanes_col:
+                self._emit_progress(f"✓ Lanes matching enabled - LMD 'Lane' vs Feedback 'Lanes'")
+                self._emit_progress(f"   • LMD Lane column: '{input_lanes_col}'")
+                self._emit_progress(f"   • Feedback Lanes column: '{feedback_lanes_col}'")
+                self._emit_progress(f"   • Logic: 'All' matches all lanes, otherwise exact match (L1/L2/R1/R2)")
+            else:
+                self._emit_progress(f"ℹ️ Lanes matching disabled - column not found in both files")
 
             # Find start/end chainage in feedback with case-insensitive matching
             # Support: Start Chainage (km), locFrom (meters), start chainage
@@ -620,16 +666,46 @@ class ClientFeedbackProcessor:
                 feedback_processed = feedback_processed.with_columns([
                     pl.col(feedback_lane_col).cast(pl.Utf8).alias('fb_lane')
                 ])
+            
+            # Add wheelpath column for matching if available
+            use_wheelpath_matching = input_wheelpath_col and feedback_wheelpath_col
+            if use_wheelpath_matching:
+                # Normalize wheelpath: L→LWP, R→RWP, otherwise keep as-is
+                result_processed = result_processed.with_columns([
+                    pl.when(pl.col(input_wheelpath_col).cast(pl.Utf8).str.strip_chars() == 'L')
+                    .then(pl.lit('LWP'))
+                    .when(pl.col(input_wheelpath_col).cast(pl.Utf8).str.strip_chars() == 'R')
+                    .then(pl.lit('RWP'))
+                    .otherwise(pl.col(input_wheelpath_col).cast(pl.Utf8).str.strip_chars())
+                    .alias('wheelpath_join')
+                ])
+                feedback_processed = feedback_processed.with_columns([
+                    pl.col(feedback_wheelpath_col).cast(pl.Utf8).str.strip_chars().alias('fb_wheelpath')
+                ])
+            
+            # Add Lanes column for matching if available
+            use_lanes_matching = input_lanes_col and feedback_lanes_col
+            if use_lanes_matching:
+                result_processed = result_processed.with_columns([
+                    pl.col(input_lanes_col).cast(pl.Utf8).str.strip_chars().alias('lanes_join')
+                ])
+                feedback_processed = feedback_processed.with_columns([
+                    pl.col(feedback_lanes_col).cast(pl.Utf8).str.strip_chars().alias('fb_lanes')
+                ])
 
             # Add row index for tracking
             result_processed = result_processed.with_row_count('_row_idx')
 
             self._emit_progress("STEP 3: REGION + ROAD SECTION MATCHING")
             self._emit_progress(f"📝 Matching strategy: Normalize IDs (strip leading zeros) while preserving original format")
+            matching_criteria = ['region', 'road', 'chainage']
             if use_lane_matching:
-                self._emit_progress(f"🔗 Starting region+road+chainage+lane-based matching process...")
-            else:
-                self._emit_progress(f"🔗 Starting region+road+chainage-based matching process...")
+                matching_criteria.append('lane')
+            if use_wheelpath_matching:
+                matching_criteria.append('wheelpath')
+            if use_lanes_matching:
+                matching_criteria.append('lanes')
+            self._emit_progress(f"🔗 Starting {'+'.join(matching_criteria)}-based matching process...")
             
             # Get unique region+road IDs for statistics
             unique_lmd_regions = result_processed['region_id_join'].n_unique()
@@ -681,6 +757,30 @@ class ClientFeedbackProcessor:
             
             chainage_matches = matched.height
             self._emit_progress(f"   • Chainage range matches: {chainage_matches:,}/{region_road_matches:,} records")
+            
+            # Apply wheelpath filtering if available
+            if use_wheelpath_matching:
+                # Filter: feedback 'Both' matches any LMD wheelpath, otherwise exact match
+                wheelpath_col = 'fb_wheelpath' if 'fb_wheelpath' in matched.columns else 'fb_wheelpath_feedback'
+                before_wheelpath = matched.height
+                matched = matched.filter(
+                    (pl.col(wheelpath_col) == 'Both') |  # 'Both' matches everything
+                    (pl.col(wheelpath_col) == pl.col('wheelpath_join'))  # Exact match for LWP/RWP
+                )
+                after_wheelpath = matched.height
+                self._emit_progress(f"   • Wheelpath matches: {after_wheelpath:,}/{before_wheelpath:,} records")
+            
+            # Apply Lanes filtering if available
+            if use_lanes_matching:
+                # Filter: feedback 'All' matches any LMD lanes, otherwise exact match
+                lanes_col = 'fb_lanes' if 'fb_lanes' in matched.columns else 'fb_lanes_feedback'
+                before_lanes = matched.height
+                matched = matched.filter(
+                    (pl.col(lanes_col) == 'All') |  # 'All' matches everything
+                    (pl.col(lanes_col) == pl.col('lanes_join'))  # Exact match for L1/L2/R1/R2
+                )
+                after_lanes = matched.height
+                self._emit_progress(f"   • Lanes matches: {after_lanes:,}/{before_lanes:,} records")
             
             # Check for LMD records that match multiple feedback ranges
             if chainage_matches > 0:
