@@ -24,8 +24,9 @@ class HelpTab(QWidget):
     def initUI(self):
         """Initialize the user interface."""
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(15)
+        from gui.ui_constants import LAYOUT_MARGINS, LAYOUT_SPACING
+        layout.setContentsMargins(*LAYOUT_MARGINS)
+        layout.setSpacing(LAYOUT_SPACING)
         
         # Title
         title_label = QLabel("User Guide & Documentation")
@@ -113,9 +114,15 @@ class HelpTab(QWidget):
 <h2>📘 LMD Data Cleaner</h2>
 
 <h3>Purpose</h3>
-<p>This tool cleans LMD survey data by removing invalid or problematic records based on predefined quality filters.</p>
+<p>Cleans LMD survey data by removing invalid or problematic records based on predefined quality filters. Supports <strong>single CSV file</strong> or <strong>folder of CSVs</strong> (fast merge then clean).</p>
 
-<h3>Data Cleaning Scenarios</h3>
+<h3>Modes</h3>
+<ul>
+    <li><strong>Single CSV File:</strong> One input file → one cleaned output file.</li>
+    <li><strong>Folder with CSV Files:</strong> All CSVs in the folder are merged (byte copy, no full parse) then cleaned in a single pass. Faster for many files. Before merging, the app checks that every file has the <strong>same header (schema)</strong> by reading only the first line of each file; if any file differs, processing stops with a clear error.</li>
+</ul>
+
+<h3>Data Cleaning Rules (Applied in order)</h3>
 
 <div class="scenario">
     <strong>Scenario 1: Remove Empty Slope Data</strong>
@@ -143,12 +150,42 @@ class HelpTab(QWidget):
 
 <div class="scenario">
     <strong>Scenario 5: Honor Ignore Flag</strong>
-    <div class="filter-item">Remove rows where Ignore = True</div>
+    <div class="filter-item">Remove rows where Ignore = True (or null)</div>
     <p><strong>Why:</strong> Records marked with Ignore=True have been flagged for exclusion during data collection or previous processing.</p>
 </div>
 
+<div class="scenario">
+    <strong>Scenario 6: Deduplicate by Test Date</strong>
+    <div class="filter-item">Keep first occurrence per TestDateUTC</div>
+    <p><strong>Why:</strong> Ensures one record per test timestamp in the output.</p>
+</div>
+
 <div class="note">
-    <strong>💡 Note:</strong> All filters are applied automatically. The output file will contain only records that pass ALL filter criteria.
+    <strong>💡 Note:</strong> All filters are applied automatically. Output uses <strong>CRLF</strong> line endings for consistency. In folder mode, schema is checked (header-only read) before merge so all files must have the same columns.
+</div>
+
+<h2>🔷 Polygon (Point-in-Polygon)</h2>
+
+<h3>Purpose</h3>
+<p>Splits CSV data by polygon regions: each row is assigned to a polygon based on its longitude/latitude, and output is written as separate files per polygon (or merged per polygon in batch mode).</p>
+
+<h3>Modes</h3>
+<ul>
+    <li><strong>Batch:</strong> Select a folder of CSV files. Each file is processed against the polygon set; results are saved under <code>batch_results</code> with per-polygon files and merged summaries.</li>
+    <li><strong>Single file:</strong> One data CSV is split by polygons; results go to <code>single_file_results</code> in the same directory as the input file.</li>
+</ul>
+
+<h3>Input Requirements</h3>
+<ul>
+    <li><strong>Polygon CSV:</strong> Must contain a <code>WKT</code> column (Well-Known Text geometry). Optional columns: <code>id</code>, <code>CouncilName</code> (or similar) for naming output files. The default browse folder for this file is <code>J:\\- RPP Calibrations\\RPP Regions</code>.</li>
+    <li><strong>Data CSV(s):</strong> Must contain <strong>longitude</strong> and <strong>latitude</strong> columns (or <code>lon</code> / <code>lat</code>). Rows are assigned to the polygon that contains the point.</li>
+</ul>
+
+<h3>Output</h3>
+<p>Per-polygon CSV files (e.g. <code>filename_id1_RegionName.csv</code>). In batch mode, merged files per polygon are also produced. Progress bar shows progress through files (batch) or steps (single file). Output uses <strong>CRLF</strong> line endings.</p>
+
+<div class="note">
+    <strong>💡 Dependencies:</strong> Polygon tab uses <code>shapely</code> and <code>polars</code>. No web browser or PyQt6-WebEngine required.
 </div>
 
 <h2>🛣️ Lane Fix Processor</h2>
@@ -231,6 +268,9 @@ class HelpTab(QWidget):
 
 <h2>⚙️ General Usage Guidelines</h2>
 
+<h3>Tab Order</h3>
+<p>Tabs are: <strong>LMD Cleaner</strong>, <strong>Polygon</strong>, <strong>Client Feedback</strong>, <strong>Lane Fix</strong>, <strong>Add Columns</strong>, <strong>Help</strong>. Layout and control sizes are unified across tabs (labels, inputs, Browse buttons, log areas).</p>
+
 <h3>File Format Requirements</h3>
 <ul>
     <li><strong>Input Format:</strong> CSV files with UTF-8 encoding (with or without BOM)</li>
@@ -242,14 +282,16 @@ class HelpTab(QWidget):
 <h3>Performance Tips</h3>
 <ul>
     <li>Large files (>1 million rows) may take several minutes to process</li>
-    <li>The application uses progress bars to show processing status</li>
+    <li>Progress bars show meaningful progress (e.g. LMD folder mode, Polygon batch/single)</li>
+    <li>LMD cleaner uses at most half of CPU cores by default (configurable) to reduce risk of overload</li>
     <li>You can cancel long-running operations using the Cancel button</li>
     <li>Processing logs provide detailed information about each step</li>
 </ul>
 
 <h3>Output Files</h3>
 <ul>
-    <li>Output files are saved in the same directory as input files</li>
+    <li>Output files use <strong>CRLF</strong> line endings consistently across all tools</li>
+    <li>Output is saved as specified (same directory as input or chosen path)</li>
     <li>Original files are never modified</li>
     <li>Output filenames include descriptive suffixes (e.g., "_cleaned", "_with_feedback")</li>
     <li>Existing output files are automatically overwritten</li>

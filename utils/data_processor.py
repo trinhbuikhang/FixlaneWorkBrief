@@ -371,8 +371,34 @@ def _read_header(input_file: str) -> list[str]:
                 return parts
         return [first_line] if first_line else []
     except Exception as e:
-        logger.warning("Fallback header read failed for %s: %s", input_file, e)
-        return []
+        logger.debug("_read_header fallback failed for %s: %s", input_file, e)
+    return []
+
+
+def _check_merge_schema(csv_files: List[Path], log_func=None) -> None:
+    """
+    Check that all CSV files in the list have the same header (schema).
+    Only reads the first line of each file; does not load full data.
+    Raises ValueError if any file has a different header.
+    """
+    if not csv_files:
+        return
+    ref_header = _read_header(str(csv_files[0]))
+    if not ref_header:
+        raise ValueError(f"Cannot read header from first file: {csv_files[0].name}")
+    ref_str = ",".join(ref_header)
+    for f in csv_files[1:]:
+        header = _read_header(str(f))
+        if not header:
+            raise ValueError(f"Cannot read header from {f.name}")
+        if header != ref_header:
+            raise ValueError(
+                f"Schema mismatch: {f.name} has different columns than {csv_files[0].name}. "
+                f"All files must have the same header for CMD merge. "
+                f"First file columns: {len(ref_header)}; {f.name} columns: {len(header)}."
+            )
+    if log_func:
+        log_func(f"Schema check OK: all {len(csv_files)} files have same header ({len(ref_header)} columns)")
 
 
 def _estimate_total_rows(input_file: str, file_size_gb: float) -> int:
@@ -588,7 +614,7 @@ def _process_chunk_worker_safe_to_file(args) -> Tuple[int, Optional[str], dict]:
         }
         if filtered_count > 0:
             temp_file = os.path.join(temp_dir, f"chunk_{chunk_id}.csv")
-            chunk_df.write_csv(temp_file, include_header=False)
+            chunk_df.write_csv(temp_file, include_header=False, line_terminator='\r\n')
             del chunk_df
             gc.collect()
             return (chunk_id, temp_file, stats)
@@ -775,7 +801,7 @@ def _process_memory_safe_ultra_fast(
             return mask
 
         try:
-            with open(temp_output, 'w', encoding='utf-8') as f_out:
+            with open(temp_output, 'w', encoding='utf-8', newline='') as f_out:
                 f_out.write(','.join(columns) + '\n')
                 for chunk_id, chunk_file, stats in sorted(temp_chunk_files):
                     chunk_df = pl.read_csv(
@@ -811,11 +837,11 @@ def _process_memory_safe_ultra_fast(
 
                         if n_new > 0:
                             filtered_chunk = chunk_df.filter(pl.Series(mask))
-                            f_out.write(filtered_chunk.write_csv(include_header=False))
+                            f_out.write(filtered_chunk.write_csv(include_header=False, line_terminator='\r\n'))
                             del filtered_chunk
                         del test_dates, mask
                     else:
-                        f_out.write(chunk_df.write_csv(include_header=False))
+                        f_out.write(chunk_df.write_csv(include_header=False, line_terminator='\r\n'))
                         total_written_rows += len(chunk_df)
 
                     del chunk_df
@@ -977,7 +1003,7 @@ def _process_memory_safe_standard(
     log_func(f"  Writing output: {os.path.basename(output_file)}", percent=80)
     try:
         with FileLock(output_file, timeout=60):
-            df.write_csv(output_file, include_header=True)
+            df.write_csv(output_file, include_header=True, line_terminator='\r\n')
     except FileLockTimeout:
         log_func("ERROR: Output file is locked", "ERROR")
         raise RuntimeError(f"Cannot write to {output_file} - file is locked")
@@ -1058,6 +1084,10 @@ def merge_then_clean_folder(
 
     total_input_gb = sum(f.stat().st_size for f in csv_files) / (1024 ** 3)
     log_func(f"Found {len(csv_files)} CSV files ({total_input_gb:.2f} GB total)")
+
+    # Schema check: all files must have same header before CMD merge (header-only read, no full load)
+    _check_merge_schema(csv_files, log_func=log_func)
+
     log_func("Using fast merge then clean (merge = byte copy, then single clean pass)")
 
     # Disk: need space for combined file + output (process_data temp is inside same dir as output)
@@ -1377,12 +1407,12 @@ def merge_and_clean_folder(
                                     pass  # skip batch (all dupes)
                                 elif n_new == len(mask):
                                     # Fast-path: all unique, write whole batch without filter
-                                    f_out.write(chunk_df.write_csv(include_header=False))
+                                    f_out.write(chunk_df.write_csv(include_header=False, line_terminator='\r\n'))
                                     total_written += n_new
                                 else:
                                     # Some dupes: filter and write
                                     filtered = chunk_df.filter(pl.Series(mask))
-                                    f_out.write(filtered.write_csv(include_header=False))
+                                    f_out.write(filtered.write_csv(include_header=False, line_terminator='\r\n'))
                                     total_written += len(filtered)
                                     del filtered
                                 del chunk_df, mask

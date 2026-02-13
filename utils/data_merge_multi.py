@@ -365,11 +365,11 @@ def combine_csv_files_streaming(
         if mode == "STREAMING":
             # Collect with streaming for memory efficiency
             df = combined_lf.collect(streaming=True)
-            df.write_csv(output_file, include_header=True)
+            df.write_csv(output_file, include_header=True, line_terminator='\r\n')
         else:
             # Collect and write
             df = combined_lf.collect()
-            df.write_csv(output_file, include_header=True)
+            df.write_csv(output_file, include_header=True, line_terminator='\r\n')
         
         write_time = time.time() - write_start
         log(f"Write completed in {write_time:.2f}s")

@@ -95,12 +95,19 @@ def build_optimized_exe():
         '--noconsole',
         '--clean',
         
-        # Hidden imports (only what we actually need)
+        # Hidden imports (required at runtime)
         '--hidden-import=PyQt6.QtCore',
-        '--hidden-import=PyQt6.QtGui', 
+        '--hidden-import=PyQt6.QtGui',
         '--hidden-import=PyQt6.QtWidgets',
         '--hidden-import=polars',
+        '--hidden-import=pandas',           # Lane Fix timestamp parsing
         '--hidden-import=logging.handlers',
+        '--hidden-import=psutil',           # data_processor, memory monitor, add_columns
+        '--hidden-import=shapely',          # Polygon tab (point-in-polygon)
+        '--hidden-import=shapely.geometry',
+        '--hidden-import=shapely.wkt',
+        '--hidden-import=shapely.prepared',
+        '--hidden-import=shapely.strtree',
         
         # Optimize
         '--strip',  # Strip debug symbols
@@ -119,10 +126,10 @@ def build_optimized_exe():
     # Add splash screen if available
     if os.path.exists(splash_path):
         args.insert(-len(exclude_args), f'--splash={splash_path}')
-        print(f"✓ Splash screen found: {splash_path}")
+        print(f"[OK] Splash screen found: {splash_path}")
         print("  App will show splash screen immediately on startup!\n")
     else:
-        print("⚠ No splash screen found. Run 'python create_splash.py' to create one.")
+        print("[WARN] No splash screen found. Run 'python create_splash.py' to create one.")
         print("  Splash screen makes the app appear faster on slow systems.\n")
     
     try:
@@ -137,7 +144,7 @@ def build_optimized_exe():
         return 0
         
     except Exception as e:
-        print(f"\n❌ Build failed: {e}", file=sys.stderr)
+        print(f"\n[FAIL] Build failed: {e}", file=sys.stderr)
         return 1
 
 if __name__ == '__main__':

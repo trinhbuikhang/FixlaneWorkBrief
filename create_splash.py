@@ -69,7 +69,7 @@ def create_splash_screen():
     draw.text((subtitle_x, subtitle_y), subtitle_text, fill='#8b5e5d', font=subtitle_font)
     
     # Draw version
-    version_text = "Version 2.0"
+    version_text = "Version 2.0.1"
     version_bbox = draw.textbbox((0, 0), version_text, font=version_font)
     version_width = version_bbox[2] - version_bbox[0]
     version_x = (width - version_width) // 2
@@ -79,7 +79,7 @@ def create_splash_screen():
     # Save image
     output_path = os.path.join(os.path.dirname(__file__), 'splash.png')
     img.save(output_path, 'PNG')
-    print(f"✓ Splash screen created: {output_path}")
+    print(f"Splash screen created: {output_path}")
     print(f"  Size: {width}x{height} pixels")
     print(f"  Theme: Rose Gold")
     

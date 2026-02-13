@@ -1,0 +1,378 @@
+/* Animations and Effects */
+
+/* Modal Styles */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.modal-overlay.show {
+    opacity: 1;
+    pointer-events: all;
+}
+
+.success-modal {
+    background: var(--panel-bg);
+    border: 2px solid var(--success);
+    border-radius: 16px;
+    padding: var(--spacing-xl);
+    box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+    backdrop-filter: blur(20px);
+    max-width: 500px;
+    width: 90%;
+    text-align: center;
+    transform: scale(0.8) translateY(20px);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.modal-overlay.show .success-modal {
+    transform: scale(1) translateY(0);
+}
+
+.modal-header {
+    margin-bottom: var(--spacing-lg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-md);
+}
+
+.modal-icon {
+    font-size: 3rem;
+    animation: successBounce 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+.modal-title {
+    font-size: var(--font-xl);
+    font-weight: 700;
+    color: var(--success);
+    margin: 0;
+}
+
+.modal-subtitle {
+    color: var(--text2);
+    margin: 0;
+    font-size: var(--font-md);
+}
+
+.modal-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-lg);
+}
+
+.output-path {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: var(--spacing-md);
+    font-family: 'Courier New', monospace;
+    font-size: var(--font-sm);
+    word-break: break-all;
+    text-align: left;
+    position: relative;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.output-path:hover {
+    border-color: var(--primary);
+    background: rgba(0, 123, 255, 0.05);
+}
+
+.output-path .copy-hint {
+    position: absolute;
+    top: -8px;
+    right: 8px;
+    background: var(--primary);
+    color: white;
+    font-size: var(--font-xs);
+    padding: 2px 6px;
+    border-radius: 4px;
+    opacity: 0;
+    transform: translateY(5px);
+    transition: all 0.2s ease;
+    pointer-events: none;
+}
+
+.output-path:hover .copy-hint {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.modal-footer {
+    display: flex;
+    gap: var(--spacing-md);
+    justify-content: center;
+}
+
+.modal-btn {
+    padding: var(--spacing-sm) var(--spacing-lg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg);
+    color: var(--text1);
+    cursor: pointer;
+    transition: var(--transition);
+    font-weight: 600;
+}
+
+.modal-btn.primary {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: white;
+}
+
+.modal-btn:hover {
+    transform: translateY(-1px);
+}
+
+.modal-btn.primary:hover {
+    background: #0056b3;
+    border-color: #0056b3;
+}
+
+/* Processing Animations */
+@keyframes processingSpin {
+    0% { transform: rotate(0deg) scale(1); }
+    25% { transform: rotate(90deg) scale(1.1); }
+    50% { transform: rotate(180deg) scale(1); }
+    75% { transform: rotate(270deg) scale(1.1); }
+    100% { transform: rotate(360deg) scale(1); }
+}
+
+@keyframes hourglassFlip {
+    0%, 100% { 
+        transform: rotate(0deg) scale(1); 
+    }
+    25% { 
+        transform: rotate(90deg) scale(1.05); 
+    }
+    50% { 
+        transform: rotate(180deg) scale(1.1); 
+    }
+    75% { 
+        transform: rotate(270deg) scale(1.05); 
+    }
+}
+
+@keyframes hourglassBounce {
+    0% { 
+        transform: rotate(0deg) scale(1); 
+        opacity: 1;
+    }
+    50% { 
+        transform: rotate(180deg) scale(1.15); 
+        opacity: 0.8;
+    }
+    100% { 
+        transform: rotate(360deg) scale(1); 
+        opacity: 1;
+    }
+}
+
+@keyframes progressPulse {
+    0%, 100% { opacity: 1; transform: scaleY(1); }
+    50% { opacity: 0.8; transform: scaleY(1.1); }
+}
+
+@keyframes progressGlow {
+    0%, 100% { box-shadow: 0 0 5px rgba(0, 123, 255, 0.3); }
+    50% { box-shadow: 0 0 15px rgba(0, 123, 255, 0.6), 0 0 25px rgba(0, 123, 255, 0.4); }
+}
+
+@keyframes textBounce {
+    0%, 100% { transform: translateY(0) scale(1); }
+    50% { transform: translateY(-2px) scale(1.05); }
+}
+
+@keyframes numberCountUp {
+    0% { transform: scale(0.8); opacity: 0.6; }
+    50% { transform: scale(1.1); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes successBounce {
+    0% { transform: scale(0.3) rotate(0deg); }
+    50% { transform: scale(1.05) rotate(180deg); }
+    70% { transform: scale(0.9) rotate(360deg); }
+    100% { transform: scale(1) rotate(360deg); }
+}
+
+@keyframes completedGlow {
+    0%, 100% { text-shadow: 0 0 5px var(--success); }
+    50% { text-shadow: 0 0 15px var(--success), 0 0 25px var(--success); }
+}
+
+/* Processing Animation Classes */
+.hourglass-flip {
+    display: inline-block;
+    animation: hourglassFlip 2.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite;
+    transform-origin: center;
+    will-change: transform;
+    font-size: 1.5em;
+    color: var(--primary);
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+}
+
+.hourglass-bounce {
+    display: inline-block;
+    animation: hourglassBounce 2s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite;
+    transform-origin: center;
+    will-change: transform, opacity;
+    font-size: 1.5em;
+    color: var(--secondary);
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15));
+}
+
+.processing-icon {
+    display: inline-block;
+    animation: processingSpin 2s linear infinite;
+    transform-origin: center;
+    font-size: 1.2em;
+}
+
+/* Processing with hourglass */
+.processing-hourglass {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    font-weight: 600;
+    color: var(--primary);
+}
+
+.processing-hourglass .hourglass-icon {
+    display: inline-block;
+    animation: hourglassFlip 2.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite;
+    transform-origin: center;
+    will-change: transform;
+    font-size: 1.8em;
+    color: var(--primary);
+    filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.25));
+}
+
+.progress-bar.processing {
+    animation: progressGlow 2s ease-in-out infinite;
+}
+
+.progress-fill.processing {
+    animation: progressPulse 1.5s ease-in-out infinite;
+}
+
+.progress-text.processing {
+    animation: textBounce 2s ease-in-out infinite;
+    color: var(--primary);
+    font-weight: 700;
+}
+
+.progress-text.updating {
+    animation: numberCountUp 0.3s ease-out;
+}
+
+.success-icon {
+    display: inline-block;
+    animation: successBounce 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+.completed-status {
+    animation: completedGlow 2s ease-in-out infinite;
+}
+
+.progress-bar.completed {
+    background: linear-gradient(90deg, var(--success), var(--success));
+    box-shadow: 0 0 10px rgba(40, 167, 69, 0.4);
+}
+
+/* Hover Effects */
+.hover-lift {
+    transition: transform 0.2s ease;
+}
+
+.hover-lift:hover {
+    transform: translateY(-2px);
+}
+
+.hover-glow {
+    transition: box-shadow 0.2s ease;
+}
+
+.hover-glow:hover {
+    box-shadow: 0 0 20px rgba(0, 123, 255, 0.3);
+}
+
+/* Loading States */
+.loading-pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: .5; }
+}
+
+.loading-dots::after {
+    content: '';
+    animation: dots 1.5s steps(5, end) infinite;
+}
+
+@keyframes dots {
+    0%, 20% { content: '.'; }
+    40% { content: '..'; }
+    60% { content: '...'; }
+    90%, 100% { content: ''; }
+}
+
+/* Slide Transitions */
+.slide-enter {
+    transform: translateX(-100%);
+    opacity: 0;
+}
+
+.slide-enter-active {
+    transform: translateX(0);
+    opacity: 1;
+    transition: all 0.3s ease;
+}
+
+.slide-exit {
+    transform: translateX(0);
+    opacity: 1;
+}
+
+.slide-exit-active {
+    transform: translateX(100%);
+    opacity: 0;
+    transition: all 0.3s ease;
+}
+
+/* Fade Transitions */
+.fade-enter {
+    opacity: 0;
+}
+
+.fade-enter-active {
+    opacity: 1;
+    transition: opacity 0.3s ease;
+}
+
+.fade-exit {
+    opacity: 1;
+}
+
+.fade-exit-active {
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}

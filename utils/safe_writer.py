@@ -172,7 +172,8 @@ def safe_write_dataframe(
         log(f"Writing to temporary file...")
         try:
             with FileLock(str(temp_path), timeout=60):
-                df.write_csv(str(temp_path), **write_options)
+                opts = {"line_terminator": "\r\n", **write_options}
+                df.write_csv(str(temp_path), **opts)
         except FileLockTimeout:
             log("ERROR: Temporary file is locked by another process")
             return False

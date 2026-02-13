@@ -1,0 +1,72 @@
+/* CSS Variables and Themes */
+:root {
+    /* Color Scheme - Light Theme */
+    --primary: #007bff;
+    --success: #28a745;
+    --warning: #ffc107;
+    --error: #dc3545;
+    --bg: #ffffff;
+    --panel-bg: rgba(255, 255, 255, 0.95);
+    --text1: #2c3e50;
+    --text2: #6c757d;
+    --border: #e9ecef;
+    --shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+
+    /* Spacing System */
+    --spacing-xs: 4px;
+    --spacing-sm: 8px;
+    --spacing-md: 16px;
+    --spacing-lg: 24px;
+    --spacing-xl: 32px;
+
+    /* Typography */
+    --font-xs: 10px;
+    --font-sm: 12px;
+    --font-md: 14px;
+    --font-lg: 16px;
+    --font-xl: 18px;
+    --logo-icon-size: 1.5rem;
+    --logo-title-size: var(--font-lg);
+
+    /* Layout */
+    --header-height: 60px;
+    --border-radius: 8px;
+    --transition: all 0.2s ease;
+}
+
+/* Dark Theme */
+[data-theme="dark"] {
+    --primary: #4dabf7;
+    --success: #51cf66;
+    --warning: #ffd43b;
+    --error: #ff6b6b;
+    --bg: #1a1a1a;
+    --panel-bg: rgba(40, 40, 40, 0.95);
+    --text1: #ffffff;
+    --text2: #adb5bd;
+    --border: #404040;
+    --shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Base Reset */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text1);
+    font-size: var(--font-md);
+    line-height: 1.5;
+    overflow: hidden;
+}
+
+.container {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+}

@@ -212,7 +212,8 @@ class PolarsDataProcessor:
                     output_path,
                     null_value="",  # Empty string for null values
                     quote_char='"',
-                    separator=','
+                    separator=',',
+                    line_terminator='\r\n',
                 )
         except FileLockTimeout:
             logger.error(f"Output file {output_path} is locked by another process")

@@ -293,7 +293,7 @@ class AddColumnsProcessor:
                     self._emit_progress(f"✓ Removed {removed_duplicates} duplicate TestDateUTC rows from Details")
                     # Write cleaned details file to a temp location, then use it for processing
                     temp_details_path = details_file_path + ".temp_dedup"
-                    details_full.write_csv(temp_details_path, null_value='')
+                    details_full.write_csv(temp_details_path, null_value='', line_terminator='\r\n')
                     details_file_path = temp_details_path
                     total_rows = len(details_full)
                 else:
@@ -456,11 +456,11 @@ class AddColumnsProcessor:
 
                 # Write to file
                 if first_chunk:
-                    joined_chunk.write_csv(output_file_path, include_bom=True)
+                    joined_chunk.write_csv(output_file_path, include_bom=True, line_terminator='\r\n')
                     first_chunk = False
                 else:
-                    with open(output_file_path, 'a', encoding='utf-8') as f:
-                        f.write(joined_chunk.write_csv(include_header=False))
+                    with open(output_file_path, 'a', encoding='utf-8', newline='') as f:
+                        f.write(joined_chunk.write_csv(include_header=False, line_terminator='\r\n'))
 
                 # Clean up chunk to free memory
                 del joined_chunk

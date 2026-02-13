@@ -5,6 +5,14 @@ from datetime import datetime
 
 from utils.lazy_imports import polars as pl
 from PyQt6.QtCore import Qt
+from gui.ui_constants import (
+    BROWSE_BUTTON_WIDTH,
+    GROUP_SPACING,
+    INPUT_MIN_WIDTH,
+    LABEL_FIXED_WIDTH,
+    LAYOUT_MARGINS,
+    LAYOUT_SPACING,
+)
 from PyQt6.QtWidgets import (
     QCheckBox,
     QFileDialog,
@@ -58,8 +66,8 @@ class ClientFeedbackTab(QWidget):
 
     def initUI(self):
         layout = QVBoxLayout()
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(15)
+        layout.setContentsMargins(*LAYOUT_MARGINS)
+        layout.setSpacing(LAYOUT_SPACING)
 
         # Title
         title_label = QLabel("Client Feedback Processor")
@@ -69,42 +77,42 @@ class ClientFeedbackTab(QWidget):
         # File Selection GroupBox
         files_group = QGroupBox("File Selection")
         files_layout = QVBoxLayout(files_group)
-        files_layout.setSpacing(10)
+        files_layout.setSpacing(GROUP_SPACING)
 
         # Combined LMD file
         lmd_layout = QHBoxLayout()
-        lmd_layout.setSpacing(10)
+        lmd_layout.setSpacing(GROUP_SPACING)
         lmd_label = QLabel("Combined LMD:")
-        lmd_label.setFixedWidth(140)
+        lmd_label.setFixedWidth(LABEL_FIXED_WIDTH)
         lmd_layout.addWidget(lmd_label)
 
         self.lmd_edit = QLineEdit()
         self.lmd_edit.setPlaceholderText("Select combined LMD CSV file")
-        self.lmd_edit.setMinimumWidth(300)
+        self.lmd_edit.setMinimumWidth(INPUT_MIN_WIDTH)
         self.lmd_edit.setReadOnly(True)
         lmd_layout.addWidget(self.lmd_edit, 1)
 
         self.lmd_btn = QPushButton("Browse...")
-        self.lmd_btn.setFixedWidth(100)
+        self.lmd_btn.setFixedWidth(BROWSE_BUTTON_WIDTH)
         self.lmd_btn.clicked.connect(self.select_lmd_file)
         lmd_layout.addWidget(self.lmd_btn)
         files_layout.addLayout(lmd_layout)
 
         # Client feedback file
         feedback_layout = QHBoxLayout()
-        feedback_layout.setSpacing(10)
+        feedback_layout.setSpacing(GROUP_SPACING)
         feedback_label = QLabel("Client Feedback:")
-        feedback_label.setFixedWidth(140)
+        feedback_label.setFixedWidth(LABEL_FIXED_WIDTH)
         feedback_layout.addWidget(feedback_label)
 
         self.feedback_edit = QLineEdit()
         self.feedback_edit.setPlaceholderText("Select client feedback CSV file")
-        self.feedback_edit.setMinimumWidth(300)
+        self.feedback_edit.setMinimumWidth(INPUT_MIN_WIDTH)
         self.feedback_edit.setReadOnly(True)
         feedback_layout.addWidget(self.feedback_edit, 1)
 
         self.feedback_btn = QPushButton("Browse...")
-        self.feedback_btn.setFixedWidth(100)
+        self.feedback_btn.setFixedWidth(BROWSE_BUTTON_WIDTH)
         self.feedback_btn.clicked.connect(self.select_feedback_file)
         feedback_layout.addWidget(self.feedback_btn)
         files_layout.addLayout(feedback_layout)
@@ -438,7 +446,7 @@ class ClientFeedbackTab(QWidget):
                 # Prepare data for CSV output with proper boolean formatting
                 processed_df = processor._prepare_for_csv_output(processed_df)
                 # Write CSV and remove trailing newline
-                processed_df.write_csv(output_file)
+                processed_df.write_csv(output_file, line_terminator='\r\n')
                 # Remove trailing newline if it exists
                 with open(output_file, 'rb+') as f:
                     f.seek(0, 2)  # Seek to end

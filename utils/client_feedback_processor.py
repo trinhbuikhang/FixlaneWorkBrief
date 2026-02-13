@@ -903,7 +903,8 @@ class ClientFeedbackProcessor:
                         output_path,
                         quote_style='necessary',  # Only quote when needed
                         null_value='',  # Null values become empty cells (no quotes)
-                        datetime_format='%d/%m/%Y %H:%M:%S%.3f'
+                        datetime_format='%d/%m/%Y %H:%M:%S%.3f',
+                        line_terminator='\r\n',
                     )
             except FileLockTimeout:
                 logger.error(f"Output file {output_path} is locked by another process")

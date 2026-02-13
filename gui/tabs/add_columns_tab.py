@@ -4,6 +4,14 @@ import os
 import sys
 from datetime import datetime
 
+from gui.ui_constants import (
+    BROWSE_BUTTON_WIDTH,
+    GROUP_SPACING,
+    INPUT_MIN_WIDTH,
+    LABEL_FIXED_WIDTH,
+    LAYOUT_MARGINS,
+    LAYOUT_SPACING,
+)
 from utils.lazy_imports import polars as pl
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QFont
@@ -57,8 +65,8 @@ class AddColumnsTab(QWidget):
 
     def initUI(self):
         layout = QVBoxLayout()
-        layout.setContentsMargins(20, 20, 20, 20)  # Standardized margins
-        layout.setSpacing(15)  # Standardized spacing
+        layout.setContentsMargins(*LAYOUT_MARGINS)
+        layout.setSpacing(LAYOUT_SPACING)
 
         # Header Section - Compact
         header_layout = QVBoxLayout()
@@ -74,23 +82,23 @@ class AddColumnsTab(QWidget):
         # File Selection - Standardized layout
         files_group = QGroupBox("File Selection")
         files_layout = QVBoxLayout()
-        files_layout.setSpacing(10)
+        files_layout.setSpacing(GROUP_SPACING)
 
         # Details file
         details_layout = QHBoxLayout()
-        details_layout.setSpacing(10)
+        details_layout.setSpacing(GROUP_SPACING)
         details_label = QLabel("Combined Details:")
-        details_label.setFixedWidth(140)  # Standardized width
+        details_label.setFixedWidth(LABEL_FIXED_WIDTH)
         details_layout.addWidget(details_label)
 
         self.details_edit = QLineEdit()
         self.details_edit.setPlaceholderText("Select main data file...")
         self.details_edit.setReadOnly(True)
-        self.details_edit.setMinimumWidth(300)
+        self.details_edit.setMinimumWidth(INPUT_MIN_WIDTH)
         details_layout.addWidget(self.details_edit, 1)
 
         self.details_button = QPushButton("Browse...")
-        self.details_button.setFixedWidth(100)  # Standardized width
+        self.details_button.setFixedWidth(BROWSE_BUTTON_WIDTH)
         self.details_button.clicked.connect(self.select_combined_details_file)
         details_layout.addWidget(self.details_button)
 
@@ -98,19 +106,19 @@ class AddColumnsTab(QWidget):
 
         # LMD file
         lmd_layout = QHBoxLayout()
-        lmd_layout.setSpacing(10)
+        lmd_layout.setSpacing(GROUP_SPACING)
         lmd_label = QLabel("Combined LMD:")
-        lmd_label.setFixedWidth(140)  # Standardized width
+        lmd_label.setFixedWidth(LABEL_FIXED_WIDTH)
         lmd_layout.addWidget(lmd_label)
 
         self.lmd_edit = QLineEdit()
         self.lmd_edit.setPlaceholderText("Select source data file...")
         self.lmd_edit.setReadOnly(True)
-        self.lmd_edit.setMinimumWidth(300)
+        self.lmd_edit.setMinimumWidth(INPUT_MIN_WIDTH)
         lmd_layout.addWidget(self.lmd_edit, 1)
 
         self.open_button = QPushButton("Browse...")
-        self.open_button.setFixedWidth(100)  # Standardized width
+        self.open_button.setFixedWidth(BROWSE_BUTTON_WIDTH)
         self.open_button.clicked.connect(self.open_combined_lmd)
         lmd_layout.addWidget(self.open_button)
 

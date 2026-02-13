@@ -143,8 +143,9 @@ def safe_write_csv(df, output_file: str, timeout: float = 30.0, **write_options)
         safe_write_csv(df, "output.csv", include_header=True, null_value="")
     """
     try:
+        opts = {"line_terminator": "\r\n", **write_options}
         with FileLock(output_file, timeout=timeout):
-            df.write_csv(output_file, **write_options)
+            df.write_csv(output_file, **opts)
         logger.info(f"Successfully wrote to {output_file}")
         
     except FileLockTimeout as e:

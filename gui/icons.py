@@ -176,6 +176,8 @@ def get_tab_icon(tab_name: str) -> QIcon:
         'Lane Fix': 'Fix lane.ico',
         'Client Feedback': 'client feedback.ico',
         'Add Columns': 'add column.ico',
+        'Polygon Selector': 'polygon.ico',
+        'Polygon': 'polygon.ico',
         'Help': 'help.ico',
     }
     
@@ -192,6 +194,8 @@ def get_tab_icon(tab_name: str) -> QIcon:
         'Lane Fix': 'merge',
         'Client Feedback': 'feedback',
         'Add Columns': 'columns',
+        'Polygon Selector': 'file',
+        'Polygon': 'file',
         'Help': 'help',
     }
     
@@ -204,6 +208,8 @@ def get_tab_icon(tab_name: str) -> QIcon:
         'Lane Fix': ('#00897B', '#FFFFFF'),  # Teal
         'Client Feedback': ('#F57C00', '#FFFFFF'),  # Orange
         'Add Columns': ('#5E35B1', '#FFFFFF'),  # Purple
+        'Polygon Selector': ('#00796B', '#FFFFFF'),  # Dark teal
+        'Polygon': ('#00796B', '#FFFFFF'),
         'Help': ('#43A047', '#FFFFFF'),  # Green
     }
     

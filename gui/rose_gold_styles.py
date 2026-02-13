@@ -32,12 +32,13 @@ QTabBar::tab {
                                 stop:0 #f7e0dd, stop:1 #f0d0ce);
     border: 1px solid #e8c4c1;
     border-bottom: none;
-    border-radius: 8px 8px 0 0;
-    padding: 12px 24px;
-    margin-right: 4px;
+    border-radius: 6px 6px 0 0;
+    padding: 8px 14px;
+    margin-right: 3px;
     color: #7d5e5c;
     font-weight: 500;
-    min-width: 120px;
+    font-size: 10pt;
+    min-width: 0;
 }
 
 QTabBar::tab:selected {

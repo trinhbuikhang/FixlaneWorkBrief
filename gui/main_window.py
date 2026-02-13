@@ -40,31 +40,29 @@ class DataCleanerApp(QWidget):
     def initUI(self):
         try:
             self.logger.info("Setting window title and geometry...")
-            self.setWindowTitle("Data Processing Tool v2.0")
+            self.setWindowTitle("Data Processing Tool v2.0.1")
             
             # Set window icon
             from gui.icons import get_app_icon
             self.setWindowIcon(get_app_icon())
             
-            # Auto-size to half screen width and 90% screen height
+            # Default size: ~60% screen width so all 6 tabs are visible without overflow arrows
             from PyQt6.QtWidgets import QApplication
             screen = QApplication.primaryScreen().geometry()
-            width = screen.width() // 2  # Half screen width
-            height = int(screen.height() * 0.9)  # 90% screen height to keep window controls visible
-            
-            # Position on right half of screen
-            x = screen.width() // 2
-            y = int(screen.height() * 0.05)  # Small margin from top
-            
+            width = max(960, int(screen.width() * 0.6))
+            height = int(screen.height() * 0.9)
+            x = max(0, (screen.width() - width) // 2)
+            y = int(screen.height() * 0.05)
             self.setGeometry(x, y, width, height)
-            self.setMinimumSize(800, 600)  # Minimum size for usability
+            self.setMinimumSize(960, 600)  # Ensures all tabs visible
             self.logger.info(f"Window geometry set: {width}x{height} at ({x}, {y})")
 
             # Note: Stylesheet is applied in main.py for optimal startup performance
 
+            from gui.ui_constants import MAIN_LAYOUT_MARGINS, MAIN_LAYOUT_SPACING
             layout = QVBoxLayout()
-            layout.setContentsMargins(20, 20, 20, 20)
-            layout.setSpacing(15)
+            layout.setContentsMargins(*MAIN_LAYOUT_MARGINS)
+            layout.setSpacing(MAIN_LAYOUT_SPACING)
 
             # Create status bar FIRST (needed by tabs)
             self.logger.info("Creating status bar...")
@@ -92,21 +90,19 @@ class DataCleanerApp(QWidget):
             self.tab_widget.add_lazy_tab(
                 "LMD Cleaner",
                 lambda: self._create_lmd_cleaner_tab(),
-                load_immediately=True,  # Load first tab immediately
+                load_immediately=True,
                 icon=get_tab_icon("LMD Cleaner"),
                 tooltip="Clean and process LMD survey data - filters invalid records and adds calculated fields"
             )
-
-            # Tab 1: Lane Fix - Lazy load
+            # Tab 1: Polygon Selector
             self.tab_widget.add_lazy_tab(
-                "Lane Fix",
-                lambda: self._create_lane_fix_tab(),
+                "Polygon",
+                lambda: self._create_polygon_selector_tab(),
                 load_immediately=False,
-                icon=get_tab_icon("Lane Fix"),
-                tooltip="Fix lane numbering and chainage issues in LMD data using reference coordinates"
+                icon=get_tab_icon("Polygon Selector"),
+                tooltip="Point-in-polygon: split CSV data by polygon regions (WKT); batch or single file"
             )
-            
-            # Tab 2: Client Feedback - Lazy load
+            # Tab 2: Client Feedback
             self.tab_widget.add_lazy_tab(
                 "Client Feedback",
                 lambda: self._create_client_feedback_tab(),
@@ -114,8 +110,15 @@ class DataCleanerApp(QWidget):
                 icon=get_tab_icon("Client Feedback"),
                 tooltip="Match and merge client feedback data with LMD records based on region, road, and chainage"
             )
-            
-            # Tab 3: Add Columns - Lazy load
+            # Tab 3: Lane Fix
+            self.tab_widget.add_lazy_tab(
+                "Lane Fix",
+                lambda: self._create_lane_fix_tab(),
+                load_immediately=False,
+                icon=get_tab_icon("Lane Fix"),
+                tooltip="Fix lane numbering and chainage issues in LMD data using reference coordinates"
+            )
+            # Tab 4: Add Columns
             self.tab_widget.add_lazy_tab(
                 "Add Columns",
                 lambda: self._create_add_columns_tab(),
@@ -123,8 +126,7 @@ class DataCleanerApp(QWidget):
                 icon=get_tab_icon("Add Columns"),
                 tooltip="Add custom columns to LMD data from external CSV files based on matching criteria"
             )
-            
-            # Tab 4: Help - Lazy load
+            # Tab 5: Help
             self.tab_widget.add_lazy_tab(
                 "Help",
                 lambda: self._create_help_tab(),
@@ -183,6 +185,14 @@ class DataCleanerApp(QWidget):
         tab = AddColumnsTab()
         self._connect_tab_status(tab)
         return tab
+
+    def _create_polygon_selector_tab(self):
+        """Factory method to create Polygon Selector tab"""
+        self.logger.info("Loading Polygon Selector tab...")
+        from gui.tabs.polygon_selector_tab import PolygonSelectorTab
+        tab = PolygonSelectorTab()
+        self._connect_tab_status(tab)
+        return tab
     
     def _create_help_tab(self):
         """Factory method to create Help tab"""
@@ -209,7 +219,7 @@ class DataCleanerApp(QWidget):
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     app.setApplicationName("Data Processing Tool")
-    app.setApplicationVersion("1.0")
+    app.setApplicationVersion("2.0.1")
     app.setOrganizationName("PyDeveloper")
 
     window = DataCleanerApp()

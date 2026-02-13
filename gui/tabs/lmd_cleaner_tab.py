@@ -22,6 +22,14 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from gui.ui_constants import (
+    BROWSE_BUTTON_WIDTH,
+    GROUP_SPACING,
+    INPUT_MIN_WIDTH,
+    LABEL_FIXED_WIDTH,
+    LAYOUT_MARGINS,
+    LAYOUT_SPACING,
+)
 from utils.data_processor import process_data, merge_then_clean_folder
 from utils.security import SecurityValidator, UserFriendlyError
 
@@ -226,8 +234,8 @@ class LMDCleanerTab(QWidget):
 
     def initUI(self):
         layout = QVBoxLayout()
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(15)
+        layout.setContentsMargins(*LAYOUT_MARGINS)
+        layout.setSpacing(LAYOUT_SPACING)
 
         # Title
         title_label = QLabel("LMD Data Cleaner")
@@ -237,7 +245,7 @@ class LMDCleanerTab(QWidget):
         # Input Type Selection
         type_group = QGroupBox("Input Type")
         type_layout = QHBoxLayout(type_group)
-        type_layout.setSpacing(20)
+        type_layout.setSpacing(GROUP_SPACING)
 
         self.file_radio = QRadioButton("Single CSV File")
         self.file_radio.setChecked(True)
@@ -258,16 +266,16 @@ class LMDCleanerTab(QWidget):
         input_layout.setSpacing(10)
 
         input_label = QLabel("Input:")
-        input_label.setFixedWidth(140)
+        input_label.setFixedWidth(LABEL_FIXED_WIDTH)
         input_layout.addWidget(input_label)
 
         self.input_edit = QLineEdit()
         self.input_edit.setPlaceholderText("Select CSV file or folder containing CSV files")
-        self.input_edit.setMinimumWidth(300)
+        self.input_edit.setMinimumWidth(INPUT_MIN_WIDTH)
         input_layout.addWidget(self.input_edit, 1)
 
         self.input_btn = QPushButton("Browse...")
-        self.input_btn.setFixedWidth(100)
+        self.input_btn.setFixedWidth(BROWSE_BUTTON_WIDTH)
         self.input_btn.clicked.connect(self.select_input)
         input_layout.addWidget(self.input_btn)
 
@@ -279,16 +287,16 @@ class LMDCleanerTab(QWidget):
 
         # Fixed width label for alignment (same as input)
         output_label = QLabel("Output:")
-        output_label.setFixedWidth(140)  # Standardized width for consistency
+        output_label.setFixedWidth(LABEL_FIXED_WIDTH)
         output_layout.addWidget(output_label)
 
         self.output_edit = QLineEdit()
         self.output_edit.setPlaceholderText("Select where to save cleaned data")
-        self.output_edit.setMinimumWidth(300)  # Same minimum width as input
+        self.output_edit.setMinimumWidth(INPUT_MIN_WIDTH)
         output_layout.addWidget(self.output_edit, 1)  # Stretch factor 1
 
         self.output_btn = QPushButton("Browse...")
-        self.output_btn.setFixedWidth(100)  # Same fixed width as input button
+        self.output_btn.setFixedWidth(BROWSE_BUTTON_WIDTH)
         self.output_btn.clicked.connect(self.select_output)
         output_layout.addWidget(self.output_btn)
 

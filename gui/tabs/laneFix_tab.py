@@ -4,6 +4,14 @@ import sys
 
 from utils.lazy_imports import polars as pl
 from PyQt6.QtCore import Qt
+from gui.ui_constants import (
+    BROWSE_BUTTON_WIDTH,
+    GROUP_SPACING,
+    INPUT_MIN_WIDTH,
+    LABEL_FIXED_WIDTH,
+    LAYOUT_MARGINS,
+    LAYOUT_SPACING,
+)
 from PyQt6.QtWidgets import (
     QButtonGroup,
     QCheckBox,
@@ -61,8 +69,8 @@ class LaneFixTab(QWidget):
 
     def initUI(self):
         layout = QVBoxLayout()
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(15)
+        layout.setContentsMargins(*LAYOUT_MARGINS)
+        layout.setSpacing(LAYOUT_SPACING)
 
         # Title
         title_label = QLabel("Lane Fix Processor")
@@ -96,73 +104,73 @@ class LaneFixTab(QWidget):
 
         # Combined LMD file (always required)
         lmd_layout = QHBoxLayout()
-        lmd_layout.setSpacing(10)
+        lmd_layout.setSpacing(GROUP_SPACING)
         lmd_label = QLabel("Combined LMD:")
-        lmd_label.setFixedWidth(140)
+        lmd_label.setFixedWidth(LABEL_FIXED_WIDTH)
         lmd_layout.addWidget(lmd_label)
 
         self.lmd_edit = QLineEdit()
         self.lmd_edit.setPlaceholderText("Select combined LMD CSV file")
-        self.lmd_edit.setMinimumWidth(300)
+        self.lmd_edit.setMinimumWidth(INPUT_MIN_WIDTH)
         lmd_layout.addWidget(self.lmd_edit, 1)
 
         self.lmd_btn = QPushButton("Browse...")
-        self.lmd_btn.setFixedWidth(100)
+        self.lmd_btn.setFixedWidth(BROWSE_BUTTON_WIDTH)
         self.lmd_btn.clicked.connect(self.select_lmd_file)
         lmd_layout.addWidget(self.lmd_btn)
         files_layout.addLayout(lmd_layout)
 
         # Lane fixes file
         lane_layout = QHBoxLayout()
-        lane_layout.setSpacing(10)
+        lane_layout.setSpacing(GROUP_SPACING)
         lane_label = QLabel("Lane Fixes:")
-        lane_label.setFixedWidth(140)
+        lane_label.setFixedWidth(LABEL_FIXED_WIDTH)
         lane_layout.addWidget(lane_label)
 
         self.lane_edit = QLineEdit()
         self.lane_edit.setPlaceholderText("Select lane fixes CSV file")
-        self.lane_edit.setMinimumWidth(300)
+        self.lane_edit.setMinimumWidth(INPUT_MIN_WIDTH)
         lane_layout.addWidget(self.lane_edit, 1)
 
         self.lane_btn = QPushButton("Browse...")
-        self.lane_btn.setFixedWidth(100)
+        self.lane_btn.setFixedWidth(BROWSE_BUTTON_WIDTH)
         self.lane_btn.clicked.connect(self.select_lane_file)
         lane_layout.addWidget(self.lane_btn)
         files_layout.addLayout(lane_layout)
 
         # Workbrief file
         workbrief_layout = QHBoxLayout()
-        workbrief_layout.setSpacing(10)
+        workbrief_layout.setSpacing(GROUP_SPACING)
         workbrief_label = QLabel("Workbrief:")
-        workbrief_label.setFixedWidth(140)
+        workbrief_label.setFixedWidth(LABEL_FIXED_WIDTH)
         workbrief_layout.addWidget(workbrief_label)
 
         self.workbrief_edit = QLineEdit()
         self.workbrief_edit.setPlaceholderText("Select workbrief CSV file")
-        self.workbrief_edit.setMinimumWidth(300)
+        self.workbrief_edit.setMinimumWidth(INPUT_MIN_WIDTH)
         workbrief_layout.addWidget(self.workbrief_edit, 1)
 
         self.workbrief_btn = QPushButton("Browse...")
-        self.workbrief_btn.setFixedWidth(100)
+        self.workbrief_btn.setFixedWidth(BROWSE_BUTTON_WIDTH)
         self.workbrief_btn.clicked.connect(self.select_workbrief_file)
         workbrief_layout.addWidget(self.workbrief_btn)
         files_layout.addLayout(workbrief_layout)
 
         # Output file section
         output_layout = QHBoxLayout()
-        output_layout.setSpacing(10)
+        output_layout.setSpacing(GROUP_SPACING)
 
         output_label = QLabel("Output:")
-        output_label.setFixedWidth(140)
+        output_label.setFixedWidth(LABEL_FIXED_WIDTH)
         output_layout.addWidget(output_label)
 
         self.output_edit = QLineEdit()
         self.output_edit.setPlaceholderText("Select where to save processed data")
-        self.output_edit.setMinimumWidth(300)
+        self.output_edit.setMinimumWidth(INPUT_MIN_WIDTH)
         output_layout.addWidget(self.output_edit, 1)
 
         self.output_btn = QPushButton("Browse...")
-        self.output_btn.setFixedWidth(100)
+        self.output_btn.setFixedWidth(BROWSE_BUTTON_WIDTH)
         self.output_btn.clicked.connect(self.select_output)
         output_layout.addWidget(self.output_btn)
         files_layout.addLayout(output_layout)
@@ -431,7 +439,7 @@ class LaneFixTab(QWidget):
                 if processed_df is not None:
                     # Prepare data for CSV output with proper boolean formatting
                     processed_df = processor._prepare_for_csv_output(processed_df)
-                    processed_df.write_csv(output_file)
+                    processed_df.write_csv(output_file, line_terminator='\r\n')
                     result = output_file
                     logging.info("Workbrief processing completed")
                 else:

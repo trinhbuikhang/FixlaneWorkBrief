@@ -1,0 +1,784 @@
+<div class="container">
+    <!-- Header Row with Hamburger Button -->
+    <div class="header-row">
+        <button class="hamburger-btn" id="hamburgerBtn">
+            <span class="hamburger-icon">☰</span>
+        </button>
+    </div>
+
+    <!-- Mode Selection Row -->
+    <section class="mode-section">
+        <div class="mode-selector">
+            <button class="mode-btn active" data-mode="batch" data-tooltip="Process multiple files from a folder">
+                <span class="mode-icon">📁</span>
+                <span class="mode-text">Batch Mode</span>
+            </button>
+            <button class="mode-btn" data-mode="single" data-tooltip="Process a single data file">
+                <span class="mode-icon">📄</span>
+                <span class="mode-text">Single Mode</span>
+            </button>
+        </div>
+    </section>
+
+    <!-- Settings Panel (collapsible) -->
+    <div class="settings-panel" id="settingsPanel">
+        <div class="settings-header">
+            <h3><span>⚙️</span> Settings</h3>
+            <button class="close-btn" onclick="closeSettings()" title="Close Settings">
+                <span>✕</span>
+            </button>
+        </div>
+        <div class="settings-content">
+            <!-- Theme Section -->
+            <div class="settings-section">
+                <div class="section-header">
+                    <span class="section-icon">🎨</span>
+                    <span class="section-title">Appearance</span>
+                </div>
+                <div class="settings-group">
+                    <div class="setting-item" onclick="toggleTheme()">
+                        <div class="setting-info">
+                            <span class="setting-label">Dark Mode</span>
+                            <span class="setting-desc">Switch between light and dark theme</span>
+                        </div>
+                        <div class="setting-control">
+                            <span id="themeIcon" class="theme-icon">🌙</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Processing Options -->
+            <div class="settings-section">
+                <div class="section-header">
+                    <span class="section-icon">⚙️</span>
+                    <span class="section-title">Processing</span>
+                </div>
+                <div class="settings-group">
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <span class="setting-label">Validate All</span>
+                            <span class="setting-desc">Thorough data validation</span>
+                        </div>
+                        <div class="setting-control">
+                            <label class="switch">
+                                <input type="checkbox" id="validateAll">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <span class="setting-label">Auto-save Results</span>
+                            <span class="setting-desc">Automatically save processing results</span>
+                        </div>
+                        <div class="setting-control">
+                            <label class="switch">
+                                <input type="checkbox" id="autoSave" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Data Management -->
+            <div class="settings-section">
+                <div class="section-header">
+                    <span class="section-icon">💾</span>
+                    <span class="section-title">Data</span>
+                </div>
+                <div class="settings-group">
+                    <div class="setting-item clickable" onclick="clearAllFiles()">
+                        <div class="setting-info">
+                            <span class="setting-label">Clear All Files</span>
+                            <span class="setting-desc">Remove all selected files</span>
+                        </div>
+                        <div class="setting-control">
+                            <span class="action-icon">🗑️</span>
+                        </div>
+                    </div>
+                    <div class="setting-item clickable" onclick="clearCache()">
+                        <div class="setting-info">
+                            <span class="setting-label">Clear Cache</span>
+                            <span class="setting-desc">Clear temporary data and cache</span>
+                        </div>
+                        <div class="setting-control">
+                            <span class="action-icon">🧹</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- About Section -->
+            <div class="settings-section">
+                <div class="section-header">
+                    <span class="section-icon">ℹ️</span>
+                    <span class="section-title">About</span>
+                </div>
+                <div class="settings-group">
+                    <div class="setting-item clickable" onclick="showAbout()">
+                        <div class="setting-info">
+                            <span class="setting-label">About Polygon Selector</span>
+                            <span class="setting-desc">Version info and credits</span>
+                        </div>
+                        <div class="setting-control">
+                            <span class="action-icon">→</span>
+                        </div>
+                    </div>
+                    <div class="setting-item clickable" onclick="showHelp()">
+                        <div class="setting-info">
+                            <span class="setting-label">Help & Documentation</span>
+                            <span class="setting-desc">User guide and tutorials</span>
+                        </div>
+                        <div class="setting-control">
+                            <span class="action-icon">❓</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <main class="main">
+        <section class="content">
+            <!-- Polygon File -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h3><span>🔺</span> Polygon File</h3>
+                </div>
+                <div class="file-group">
+                    <button class="file-btn" onclick="selectPolygonFile()">
+                        <span>📁</span>
+                        <span>Choose Polygon File</span>
+                    </button>
+                    <div class="file-info empty" id="polygonFileInfo">
+                        <span>No file selected</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Batch Mode -->
+            <div class="mode-panel batch-mode active" id="batchMode">
+                <div class="panel">
+                    <div class="panel-header">
+                        <h3><span>📂</span> Data Folder</h3>
+                    </div>
+                    <div class="file-group">
+                        <button class="file-btn" onclick="selectDataFolder()">
+                            <span>📂</span>
+                            <span>Choose Data Folder</span>
+                        </button>
+                        <div class="file-info empty" id="dataFolderInfo">
+                            <span>No folder selected</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel process-section">
+                    <button class="process-btn" onclick="startBatchProcessing()" id="batchProcessBtn">
+                        <span>🚀</span>
+                        <span>Start Processing</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Single Mode -->
+            <div class="mode-panel single-mode" id="singleMode">
+                <div class="panel">
+                    <div class="panel-header">
+                        <h3><span>📄</span> Data File</h3>
+                    </div>
+                    <div class="file-group">
+                        <button class="file-btn" onclick="selectSingleFile()">
+                            <span>📄</span>
+                            <span>Choose Data File</span>
+                        </button>
+                        <div class="file-info empty" id="singleFileInfo">
+                            <span>No file selected</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel process-section">
+                    <button class="process-btn" onclick="startSingleProcessing()" id="singleProcessBtn">
+                        <span>🎯</span>
+                        <span>Process File</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Settings Overlay -->
+    <div class="settings-overlay" id="settingsOverlay" onclick="closeSettings()"></div>
+
+    <!-- About Modal -->
+    <div class="modal-overlay" id="aboutModal">
+        <div class="modern-modal about-modal">
+            <div class="modal-header">
+                <div class="modal-title">
+                    <span class="modal-icon">ℹ️</span>
+                    <h2>About Polygon Selector</h2>
+                </div>
+                <button class="modal-close-btn" onclick="closeAboutModal()">
+                    <span>✕</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="app-info">
+                    <div class="version-badge">
+                        <span class="version-label">Version</span>
+                        <span class="version-number">2.0</span>
+                    </div>
+                    <p class="app-description">
+                        A powerful tool for processing polygon and point data with advanced spatial analysis capabilities.
+                    </p>
+                </div>
+                
+                <div class="features-section">
+                    <h3>✨ Key Features</h3>
+                    <div class="features-grid">
+                        <div class="feature-item">
+                            <span class="feature-icon">📁</span>
+                            <span class="feature-text">Batch processing of multiple data files</span>
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-icon">📄</span>
+                            <span class="feature-text">Single file processing mode</span>
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-icon">🔍</span>
+                            <span class="feature-text">Polygon-based spatial filtering</span>
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-icon">✅</span>
+                            <span class="feature-text">Advanced data validation</span>
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-icon">📤</span>
+                            <span class="feature-text">Export to multiple formats</span>
+                        </div>
+                        <div class="feature-item">
+                            <span class="feature-icon">⚙️</span>
+                            <span class="feature-text">Customizable processing options</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="tech-section">
+                    <h3>🔧 Technology Stack</h3>
+                    <div class="tech-badges">
+                        <span class="tech-badge">PyQt6</span>
+                        <span class="tech-badge">Python</span>
+                        <span class="tech-badge">HTML5</span>
+                        <span class="tech-badge">CSS3</span>
+                        <span class="tech-badge">JavaScript</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn secondary" onclick="closeAboutModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Help Modal -->
+    <div class="modal-overlay" id="helpModal">
+        <div class="modern-modal help-modal">
+            <div class="modal-header">
+                <div class="modal-title">
+                    <span class="modal-icon">❓</span>
+                    <h2>Help & Documentation</h2>
+                </div>
+                <button class="modal-close-btn" onclick="closeHelpModal()">
+                    <span>✕</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="help-section">
+                    <h3>🚀 Quick Start Guide</h3>
+                    <div class="steps-container">
+                        <div class="step-item">
+                            <div class="step-number">1</div>
+                            <div class="step-content">
+                                <h4>Select Polygon File</h4>
+                                <p>Choose your boundary polygon file (.shp, .geojson, .csv, etc.)</p>
+                            </div>
+                        </div>
+                        <div class="step-item">
+                            <div class="step-number">2</div>
+                            <div class="step-content">
+                                <h4>Choose Processing Mode</h4>
+                                <p><strong>Batch Mode:</strong> Process multiple files from a folder<br>
+                                   <strong>Single Mode:</strong> Process one specific file</p>
+                            </div>
+                        </div>
+                        <div class="step-item">
+                            <div class="step-number">3</div>
+                            <div class="step-content">
+                                <h4>Select Data</h4>
+                                <p>Choose your data files or folder containing CSV files to process</p>
+                            </div>
+                        </div>
+                        <div class="step-item">
+                            <div class="step-number">4</div>
+                            <div class="step-content">
+                                <h4>Configure Settings</h4>
+                                <p>Adjust processing options in the settings panel (hamburger menu)</p>
+                            </div>
+                        </div>
+                        <div class="step-item">
+                            <div class="step-number">5</div>
+                            <div class="step-content">
+                                <h4>Start Processing</h4>
+                                <p>Click the process button to begin spatial analysis and filtering</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="help-tips">
+                    <h3>💡 Pro Tips</h3>
+                    <div class="tips-grid">
+                        <div class="tip-item">
+                            <span class="tip-icon">⚡</span>
+                            <span class="tip-text">Use batch mode for processing multiple files efficiently</span>
+                        </div>
+                        <div class="tip-item">
+                            <span class="tip-icon">🔍</span>
+                            <span class="tip-text">Enable "Validate All" for thorough data checking</span>
+                        </div>
+                        <div class="tip-item">
+                            <span class="tip-icon">💾</span>
+                            <span class="tip-text">Results are automatically saved to output folders</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn secondary" onclick="closeHelpModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+    
+    <!-- Success Modal -->
+    <div class="modal-overlay" id="successModal">
+        <div class="success-modal">
+            <div class="modal-header">
+                <div class="modal-icon">🎉</div>
+                <h3 class="modal-title">Processing Complete!</h3>
+                <p class="modal-subtitle">Your files have been successfully processed</p>
+            </div>
+            <div class="modal-body">
+                <div class="output-path" onclick="copyToClipboard(this.textContent)" id="modalPath">
+                    <span class="copy-hint">Click to copy</span>
+                    Results saved to your output folder
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn" onclick="closeSuccessModal()">Close</button>
+                <button class="modal-btn primary" onclick="copyToClipboard(document.getElementById('modalPath').textContent)">Copy Path</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Fallback initialization for UI buttons
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Compact template DOM ready');
+    
+    // Ensure hamburger button works
+    const hamburger = document.getElementById('hamburgerBtn');
+    if (hamburger) {
+        console.log('Compact template: Hamburger button found, setting up event listener');
+        
+        // Remove any existing onclick to avoid conflicts
+        hamburger.removeAttribute('onclick');
+        
+        // Add direct event listener
+        hamburger.addEventListener('click', function(e) {
+            e.preventDefault();
+            console.log('Compact template: Hamburger button clicked (direct event)');
+            
+            if (typeof toggleSettings === 'function') {
+                toggleSettings();
+            } else {
+                console.log('Compact template: toggleSettings not available, using fallback');
+                // Use fallback
+                const panel = document.getElementById('settingsPanel');
+                const overlay = document.getElementById('settingsOverlay');
+                const btn = document.getElementById('hamburgerBtn');
+                
+                if (panel && overlay && btn) {
+                    if (panel.classList.contains('open')) {
+                        panel.classList.remove('open');
+                        overlay.classList.remove('show');
+                        btn.classList.remove('active');
+                        btn.innerHTML = '<span class="hamburger-icon">☰</span>';
+                    } else {
+                        panel.classList.add('open');
+                        overlay.classList.add('show');
+                        btn.classList.add('active');
+                        btn.innerHTML = '<span class="hamburger-icon">✕</span>';
+                    }
+                }
+            }
+        });
+        
+        console.log('Compact template: Event listener added to hamburger button');
+    } else {
+        console.log('Compact template: Hamburger button NOT found');
+    }
+    
+    if (hamburger && typeof toggleSettings === 'undefined') {
+        console.log('Adding fallback toggleSettings');
+        window.toggleSettings = function() {
+            console.log('toggleSettings called');
+            const panel = document.getElementById('settingsPanel');
+            const overlay = document.getElementById('settingsOverlay');
+            const btn = document.getElementById('hamburgerBtn');
+            
+            if (!panel || !overlay || !btn) {
+                console.log('Settings elements not found');
+                return;
+            }
+            
+            if (panel.classList.contains('open')) {
+                // Close settings
+                panel.classList.remove('open');
+                overlay.classList.remove('show');
+                btn.classList.remove('active');
+                btn.innerHTML = '<span class="hamburger-icon">☰</span>';
+                console.log('Settings closed');
+            } else {
+                // Open settings
+                panel.classList.add('open');
+                overlay.classList.add('show');
+                btn.classList.add('active');
+                btn.innerHTML = '<span class="hamburger-icon">✕</span>';
+                console.log('Settings opened');
+            }
+        };
+    }
+    
+    // Mode button event listeners - handled by app.js
+    // App.js initModeButtons() handles the click events to prevent duplicates
+
+    // Ensure mode switching works - only add fallback if ui-handlers.js switchMode is not available
+    const modeButtons = document.querySelectorAll('.mode-btn');
+    if (modeButtons.length > 0 && (typeof switchMode === 'undefined' || !window.switchMode)) {
+        console.log('Adding fallback switchMode');
+        window.switchMode = function(mode) {
+            // Remove active from all mode buttons
+            document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
+            // Hide all mode panels
+            document.querySelectorAll('.mode-panel').forEach(panel => panel.classList.remove('active'));
+            
+            // Activate selected mode
+            const selectedBtn = document.querySelector(`[data-mode="${mode}"]`);
+            const selectedPanel = document.getElementById(mode + 'Mode');
+            
+            if (selectedBtn) selectedBtn.classList.add('active');
+            if (selectedPanel) selectedPanel.classList.add('active');
+            
+            console.log('Switched to mode:', mode);
+        };
+    }
+    
+    // Ensure other functions have fallbacks
+    if (typeof selectPolygonFile === 'undefined') {
+        window.selectPolygonFile = function() { 
+            console.log('selectPolygonFile called');
+            if (window.qt && window.qt.webChannelTransport) {
+                // Web channel is available - call Python bridge
+                if (window.bridge && window.bridge.select_polygon_file) {
+                    window.bridge.select_polygon_file('Select polygon CSV file');
+                } else {
+                    console.log('Bridge not ready, trying alternative...');
+                    setTimeout(() => {
+                        if (window.bridge) {
+                            window.bridge.select_polygon_file('Select polygon CSV file');
+                        }
+                    }, 100);
+                }
+            } else {
+                alert('File selection not available - Web channel not connected');
+            }
+        };
+    }
+    if (typeof selectDataFolder === 'undefined') {
+        window.selectDataFolder = function() { 
+            console.log('selectDataFolder called');
+            if (window.qt && window.qt.webChannelTransport) {
+                if (window.bridge && window.bridge.select_data_folder) {
+                    window.bridge.select_data_folder('Select data folder');
+                } else {
+                    setTimeout(() => {
+                        if (window.bridge) {
+                            window.bridge.select_data_folder('Select data folder');
+                        }
+                    }, 100);
+                }
+            } else {
+                alert('Folder selection not available - Web channel not connected');
+            }
+        };
+    }
+    if (typeof selectSingleFile === 'undefined') {
+        window.selectSingleFile = function() { 
+            console.log('selectSingleFile called');
+            if (window.qt && window.qt.webChannelTransport) {
+                if (window.bridge && window.bridge.select_single_file) {
+                    window.bridge.select_single_file('Select CSV data file');
+                } else {
+                    setTimeout(() => {
+                        if (window.bridge) {
+                            window.bridge.select_single_file('Select CSV data file');
+                        }
+                    }, 100);
+                }
+            } else {
+                alert('File selection not available - Web channel not connected');
+            }
+        };
+    }
+    if (typeof startBatchProcessing === 'undefined') {
+        window.startBatchProcessing = function() { 
+            console.log('startBatchProcessing called');
+            if (window.qt && window.qt.webChannelTransport) {
+                if (window.bridge && window.bridge.start_batch_processing) {
+                    window.bridge.start_batch_processing('Start batch processing');
+                } else {
+                    setTimeout(() => {
+                        if (window.bridge) {
+                            window.bridge.start_batch_processing('Start batch processing');
+                        }
+                    }, 100);
+                }
+            } else {
+                alert('Processing not available - Web channel not connected');
+            }
+        };
+    }
+    if (typeof startSingleProcessing === 'undefined') {
+        window.startSingleProcessing = function() { 
+            console.log('startSingleProcessing called');
+            if (window.qt && window.qt.webChannelTransport) {
+                if (window.bridge && window.bridge.start_single_processing) {
+                    window.bridge.start_single_processing('Start single processing');
+                } else {
+                    setTimeout(() => {
+                        if (window.bridge) {
+                            window.bridge.start_single_processing('Start single processing');
+                        }
+                    }, 100);
+                }
+            } else {
+                alert('Processing not available - Web channel not connected');
+            }
+        };
+    }
+    if (typeof toggleTheme === 'undefined') {
+        window.toggleTheme = function() { alert('toggleTheme - Not implemented yet'); };
+    }
+    if (typeof clearAllFiles === 'undefined') {
+        window.clearAllFiles = function() { 
+            console.log('clearAllFiles called');
+            if (window.qt && window.qt.webChannelTransport) {
+                if (window.bridge && window.bridge.clear_files) {
+                    window.bridge.clear_files('Clear all files');
+                } else {
+                    setTimeout(() => {
+                        if (window.bridge) {
+                            window.bridge.clear_files('Clear all files');
+                        }
+                    }, 100);
+                }
+            } else {
+                // Fallback: clear UI manually
+                clearAllFileInfo();
+            }
+        };
+    }
+    if (typeof closeSettings === 'undefined') {
+        window.closeSettings = function() { 
+            console.log('closeSettings called');
+            const panel = document.getElementById('settingsPanel');
+            const overlay = document.getElementById('settingsOverlay');
+            const btn = document.getElementById('hamburgerBtn');
+            
+            if (panel && overlay && btn) {
+                panel.classList.remove('open');
+                overlay.classList.remove('show');
+                btn.classList.remove('active');
+                btn.innerHTML = '<span class="hamburger-icon">☰</span>';
+                console.log('Settings closed via overlay');
+            }
+        };
+    }
+    if (typeof closeSuccessModal === 'undefined') {
+        window.closeSuccessModal = function() {
+            document.getElementById('successModal').style.display = 'none';
+        };
+    }
+    if (typeof copyToClipboard === 'undefined') {
+        window.copyToClipboard = function(text) { 
+            console.log('Copy to clipboard:', text);
+            alert('Copy functionality - Not implemented yet'); 
+        };
+    }
+    
+    // Helper function to update file info display
+    function updateFileInfo(elementId, filename, path) {
+        const element = document.getElementById(elementId);
+        if (element) {
+            element.innerHTML = `<span title="${path}">${filename}</span>`;
+            element.classList.remove('empty');
+        }
+    }
+    
+    // Helper function to clear all file info
+    function clearAllFileInfo() {
+        const fileInfos = ['polygonFileInfo', 'dataFolderInfo', 'singleFileInfo'];
+        fileInfos.forEach(id => {
+            const element = document.getElementById(id);
+            if (element) {
+                element.innerHTML = '<span>No file selected</span>';
+                element.classList.add('empty');
+            }
+        });
+    }
+    
+    // Helper function to show success modal
+    function showSuccessModal(message) {
+        const modal = document.getElementById('successModal');
+        const pathElement = document.getElementById('modalPath');
+        
+        if (modal && pathElement) {
+            // Extract path from message if possible
+            const pathMatch = message.match(/saved to (.+)/);
+            if (pathMatch) {
+                pathElement.textContent = pathMatch[1];
+            } else {
+                pathElement.textContent = message;
+            }
+            modal.style.display = 'flex';
+        }
+    }
+    
+    // Helper function to update progress (missing function fix)
+    function updateProgress(progress) {
+        console.log('Progress update:', progress);
+        // You can add progress bar update logic here if needed
+    }
+    
+    // Make updateProgress available globally  
+    window.updateProgress = updateProgress;
+    
+    // Setup hamburger button event listener - SINGLE HANDLER ONLY
+    const hamburgerBtn = document.getElementById('hamburgerBtn');
+    if (hamburgerBtn) {
+        // Remove any existing event listeners or onclick
+        hamburgerBtn.removeAttribute('onclick');
+        
+        hamburgerBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('🍔 Hamburger button clicked!');
+            
+            // Call toggleSettings function
+            if (typeof toggleSettings === 'function') {
+                console.log('📞 Calling toggleSettings function...');
+                toggleSettings();
+            } else {
+                console.error('❌ toggleSettings function not found!');
+                // Manual fallback
+                const panel = document.getElementById('settingsPanel');
+                const overlay = document.getElementById('settingsOverlay');
+                if (panel && overlay) {
+                    const isOpen = panel.classList.contains('open');
+                    console.log('🔄 Manual toggle - panel open:', isOpen);
+                    if (isOpen) {
+                        panel.classList.remove('open');
+                        overlay.classList.remove('show');
+                        hamburgerBtn.classList.remove('active');
+                        hamburgerBtn.innerHTML = '<span class="hamburger-icon">☰</span>';
+                    } else {
+                        panel.classList.add('open');
+                        overlay.classList.add('show');
+                        hamburgerBtn.classList.add('active');
+                        // Keep hamburger icon consistent
+                    }
+                }
+            }
+        }, true); // Use capture phase to ensure it runs first
+        
+        console.log('✅ Hamburger button event listener added successfully');
+    } else {
+        console.error('❌ Hamburger button element not found!');
+    }
+    
+    // Setup settings overlay click listener
+    const settingsOverlay = document.getElementById('settingsOverlay');
+    if (settingsOverlay) {
+        settingsOverlay.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('🔄 Settings overlay clicked - closing settings');
+            if (typeof closeSettings === 'function') {
+                closeSettings();
+            }
+        });
+        console.log('✅ Settings overlay event listener added');
+    } else {
+        console.error('❌ Settings overlay element not found!');
+    }
+    
+    // Setup modal event listeners
+    const aboutModal = document.getElementById('aboutModal');
+    const helpModal = document.getElementById('helpModal');
+    
+    // Close modals when clicking outside
+    if (aboutModal) {
+        aboutModal.addEventListener('click', function(e) {
+            if (e.target === aboutModal) {
+                closeAboutModal();
+            }
+        });
+    }
+    
+    if (helpModal) {
+        helpModal.addEventListener('click', function(e) {
+            if (e.target === helpModal) {
+                closeHelpModal();
+            }
+        });
+    }
+    
+    // Close modals with Escape key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            if (aboutModal && aboutModal.classList.contains('show')) {
+                closeAboutModal();
+            }
+            if (helpModal && helpModal.classList.contains('show')) {
+                closeHelpModal();
+            }
+        }
+    });
+    
+    // Initialize app instance
+    console.log('[DEBUG] Initializing PolygonApp instance...');
+    if (typeof PolygonApp !== 'undefined') {
+        window.app = new PolygonApp();
+        console.log('[DEBUG] PolygonApp instance created and assigned to window.app');
+    } else {
+        console.error('[DEBUG] PolygonApp class not found!');
+    }
+});
+</script>

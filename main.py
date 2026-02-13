@@ -144,7 +144,7 @@ def main():
         _bootstrap_log("Creating QApplication...")
         app = QApplication(sys.argv)
         app.setApplicationName("Data Processing Tool")
-        app.setApplicationVersion("1.0")
+        app.setApplicationVersion("2.0.1")
         app.setOrganizationName("PyDeveloper")
         _bootstrap_log("QApplication created")
 

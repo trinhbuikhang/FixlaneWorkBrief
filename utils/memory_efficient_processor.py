@@ -338,10 +338,10 @@ class MemoryEfficientAddColumnsProcessor:
                         
                         # Write to output
                         if first_chunk:
-                            final_chunk.write_csv(f, include_header=True)
+                            final_chunk.write_csv(f, include_header=True, line_terminator='\r\n')
                             first_chunk = False
                         else:
-                            final_chunk.write_csv(f, include_header=False)
+                            final_chunk.write_csv(f, include_header=False, line_terminator='\r\n')
                         
                         processed_rows += len(chunk)
                         
