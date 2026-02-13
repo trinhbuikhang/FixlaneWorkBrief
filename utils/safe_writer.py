@@ -229,8 +229,8 @@ def safe_write_dataframe(
         if temp_path and temp_path.exists():
             try:
                 temp_path.unlink()
-            except:
-                pass
+            except OSError as e:
+                logger.warning("Failed to remove temp file %s: %s", temp_path, e)
         
         # Restore from backup if available
         if backup_path and Path(backup_path).exists():

@@ -70,8 +70,8 @@ class FileLock:
                         try:
                             os.remove(self.lock_file)
                             continue  # Try again
-                        except:
-                            pass
+                        except OSError as e:
+                            logger.warning("Could not remove stale lock file %s: %s", self.lock_file, e)
                     
                     raise FileLockTimeout(
                         f"Could not acquire lock for {self.file_path} "
@@ -90,9 +90,9 @@ class FileLock:
         if self.handle and self._lock_acquired:
             try:
                 self.handle.close()
-            except:
-                pass
-            
+            except OSError as e:
+                logger.warning("Could not close lock file handle: %s", e)
+
             try:
                 if self.lock_file.exists():
                     os.remove(self.lock_file)

@@ -1,3 +1,5 @@
 PyQt6
 polars
+pandas
 PyInstaller
+psutil

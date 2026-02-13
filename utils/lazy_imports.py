@@ -53,7 +53,7 @@ class LazyImporter:
         return getattr(self._module, name)
     
     def __dir__(self):
-        """Support for dir() và autocomplete"""
+        """Support for dir() and autocomplete"""
         if self._module is None:
             self._load_module()
         return dir(self._module)
@@ -115,10 +115,10 @@ numpy = LazyImporter('numpy')
 
 def get_lazy_import(module_name: str) -> LazyImporter:
     """
-    Factory function để tạo lazy importer.
+    Factory function to create a lazy importer.
     
     Args:
-        module_name: Tên module cần lazy load
+        module_name: Module name to lazy load
     
     Returns:
         LazyImporter instance
@@ -153,17 +153,14 @@ def preload_module(module_name: str) -> None:
 
 if __name__ == "__main__":
     # Example 1: Lazy module import
-    print("Creating lazy importer for polars...")
+    logger.info("Creating lazy importer for polars...")
     pl = LazyImporter('polars')
-    print("polars not imported yet")
-    
-    # Module sẽ được import ở đây
-    print("Accessing polars.DataFrame...")
+    logger.info("polars not imported yet")
+    # Module is imported here
+    logger.info("Accessing polars.DataFrame...")
     df_class = pl.DataFrame
-    print(f"polars imported! DataFrame class: {df_class}")
-    
+    logger.info("polars imported! DataFrame class: %s", df_class)
     # Example 2: Lazy class import
-    print("\nCreating lazy class importer...")
-    # (giả sử có class này)
+    logger.info("Creating lazy class importer...")
     # Processor = LazyClass('utils.base_processor', 'BaseProcessor')
     # processor = Processor()  # Import happens here

@@ -3,7 +3,7 @@ import os
 import sys
 from datetime import datetime
 
-import polars as pl
+from utils.lazy_imports import polars as pl
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QCheckBox,
@@ -24,13 +24,15 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+logger = logging.getLogger(__name__)
+
 try:
     from utils.client_feedback_processor import ClientFeedbackProcessor
     from utils.security import SecurityValidator, UserFriendlyError
 except ImportError as e:
-    print(f"ERROR: Failed to import client feedback modules: {e}")
-    print(f"Current working directory: {os.getcwd()}")
-    print(f"Python path: {sys.path}")
+    logger.exception("Failed to import client feedback modules: %s", e)
+    logger.debug("Current working directory: %s", os.getcwd())
+    logger.debug("Python path: %s", sys.path)
     raise
 
 class QTextEditHandler(logging.Handler):

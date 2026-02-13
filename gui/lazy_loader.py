@@ -312,7 +312,7 @@ if __name__ == "__main__":
     tabs = LazyTabWidget()
     tabs.resize(800, 600)
     
-    # Add tabs với lazy loading
+    # Add tabs with lazy loading
     tabs.add_lazy_tab(
         "Tab 1",
         lambda: QPushButton("Content of Tab 1")
@@ -328,7 +328,7 @@ if __name__ == "__main__":
         lambda: QPushButton("Content of Tab 3")
     )
     
-    # Load tab đầu tiên ngay
+    # Load first tab immediately
     tabs.add_lazy_tab(
         "Tab 4 (Preloaded)",
         lambda: QPushButton("This tab is preloaded"),
@@ -336,7 +336,6 @@ if __name__ == "__main__":
     )
     
     tabs.show()
-    
-    print(f"Loaded tabs: {tabs.get_loaded_tabs_count()}")
-    
+    import logging
+    logging.getLogger(__name__).info("Loaded tabs: %s", tabs.get_loaded_tabs_count())
     sys.exit(app.exec())

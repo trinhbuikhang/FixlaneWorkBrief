@@ -2,7 +2,7 @@ import logging
 import os
 import sys
 
-import polars as pl
+from utils.lazy_imports import polars as pl
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QButtonGroup,
@@ -22,6 +22,8 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+logger = logging.getLogger(__name__)
+
 try:
     from config.laneFix_config import Config, Messages
     from utils.laneFix_polar_data_processor import (
@@ -31,10 +33,9 @@ try:
     )
     from utils.security import SecurityValidator, UserFriendlyError
 except ImportError as e:
-    print(f"ERROR: Failed to import laneFix modules: {e}")
-    print(f"Current working directory: {os.getcwd()}")
-    print(f"Python path: {sys.path}")
-    # Re-raise the error so the application fails with proper error message
+    logger.exception("Failed to import laneFix modules: %s", e)
+    logger.debug("Current working directory: %s", os.getcwd())
+    logger.debug("Python path: %s", sys.path)
     raise
 
 class QTextEditHandler(logging.Handler):

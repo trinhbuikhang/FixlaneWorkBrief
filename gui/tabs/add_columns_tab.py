@@ -1,9 +1,10 @@
 import gc
+import logging
 import os
 import sys
 from datetime import datetime
 
-import polars as pl
+from utils.lazy_imports import polars as pl
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import (
@@ -25,6 +26,8 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+logger = logging.getLogger(__name__)
+
 try:
     import psutil
 
@@ -32,10 +35,9 @@ try:
     from utils.memory_efficient_processor import MemoryEfficientAddColumnsProcessor
     from utils.security import SecurityValidator, UserFriendlyError
 except ImportError as e:
-    print(f"ERROR: Failed to import processors: {e}")
-    print(f"Current working directory: {os.getcwd()}")
-    import sys
-    print(f"Python path: {sys.path}")
+    logger.exception("Failed to import processors: %s", e)
+    logger.debug("Current working directory: %s", os.getcwd())
+    logger.debug("Python path: %s", sys.path)
     raise
 
 class AddColumnsTab(QWidget):

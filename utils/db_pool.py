@@ -1,6 +1,9 @@
 """
 Database Connection Pool Helper
 Provides connection pooling for future database support.
+
+Note: Not used at application runtime; only referenced by tests (tests/test_db_pool.py).
+Kept for future DB features. Do not bundle as required for main app startup.
 """
 
 import logging
@@ -135,19 +138,18 @@ class DatabasePool:
                 try:
                     conn.rollback()
                     logger.debug("Transaction rolled back due to error")
-                except:
-                    pass
+                except Exception as rollback_err:
+                    logger.warning("Rollback failed: %s", rollback_err)
             raise
             
         finally:
             # Return connection to pool
             if conn:
                 try:
-                    # Commit any pending transactions
                     conn.commit()
-                except:
-                    pass
-                
+                except Exception as commit_err:
+                    logger.warning("Commit failed when returning connection: %s", commit_err)
+
                 # Return to pool
                 self._pool.put(conn)
                 logger.debug("Connection returned to pool")
@@ -259,8 +261,8 @@ class DatabasePool:
         """Destructor - ensure connections are closed"""
         try:
             self.close_all()
-        except:
-            pass
+        except Exception as e:
+            logger.debug("Error in pool destructor: %s", e)
 
 
 # Convenience function

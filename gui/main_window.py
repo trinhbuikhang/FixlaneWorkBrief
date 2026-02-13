@@ -96,7 +96,7 @@ class DataCleanerApp(QWidget):
                 icon=get_tab_icon("LMD Cleaner"),
                 tooltip="Clean and process LMD survey data - filters invalid records and adds calculated fields"
             )
-            
+
             # Tab 1: Lane Fix - Lazy load
             self.tab_widget.add_lazy_tab(
                 "Lane Fix",

@@ -53,6 +53,19 @@ class AppConfig:
     # Memory warning threshold (percentage)
     MEMORY_WARNING_THRESHOLD = float(os.getenv('MEMORY_WARNING_THRESHOLD', '0.8'))  # 80%
     
+    # --- LMD Cleaner: hard cap to avoid OOM (use fraction of system RAM) ---
+    # Max RAM (GB) the app may use for LMD processing. 0 = auto (50% of available).
+    LMD_MAX_RAM_GB = float(os.getenv('LMD_MAX_RAM_GB', '0'))
+    # Max concurrent worker processes (fewer = less peak RAM).
+    LMD_MAX_WORKERS = int(os.getenv('LMD_MAX_WORKERS', '2'))
+    # Use only this fraction of CPU cores (0.5 = half) to avoid overloading/crash. 1.0 = use all.
+    _cpu_frac = float(os.getenv('LMD_CPU_FRACTION', '0.5'))
+    LMD_CPU_FRACTION = max(0.1, min(1.0, _cpu_frac))
+    # Cap size of in-memory dedup set (TestDateUTC). Above this, dedup skipped for new entries.
+    LMD_DEDUP_SET_MAX_SIZE = int(os.getenv('LMD_DEDUP_SET_MAX_SIZE', '5000000'))  # 5M
+    # Files larger than this (GB) use chunked/parallel mode.
+    LMD_STANDARD_MODE_MAX_FILE_GB = float(os.getenv('LMD_STANDARD_MODE_MAX_FILE_GB', '1.5'))
+    
     # Garbage collection frequency (number of chunks)
     GC_FREQUENCY = int(os.getenv('GC_FREQUENCY', '10'))  # Every 10 chunks
     
@@ -230,7 +243,7 @@ class AppConfig:
         
         try:
             import json
-            with open(config_file, 'r') as f:
+            with open(config_file, 'r', encoding='utf-8') as f:
                 config = json.load(f)
             
             # Update class attributes from config file
