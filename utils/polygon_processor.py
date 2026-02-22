@@ -5,11 +5,14 @@ Requires: polars, shapely.
 """
 import csv
 import logging
+import shutil
+import tempfile
 import traceback
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 from utils.lazy_imports import polars as pl
+from utils.path_utils import is_network_path
 from shapely.geometry import MultiPolygon, Point, Polygon
 from shapely.prepared import prep
 from shapely.wkt import loads as wkt_loads
@@ -318,8 +321,15 @@ def process_folder_batch(
     polygon_df = validate_polygon_file(polygon_file_path, full_validate=validate_all)
     output_dir = folder_path / "batch_results"
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    batch_output_dir = output_dir / f"batch_{timestamp}"
-    batch_output_dir.mkdir(parents=True, exist_ok=True)
+    use_local_temp = is_network_path(str(folder_path))
+    if use_local_temp:
+        batch_output_dir = Path(tempfile.mkdtemp(prefix="polygon_batch_"))
+        logger.info("Folder is on network path; using system temp for batch results, will copy to folder when done")
+        if output_cb:
+            output_cb("Folder on network drive – using temporary location for processing, then copying results")
+    else:
+        batch_output_dir = output_dir / f"batch_{timestamp}"
+        batch_output_dir.mkdir(parents=True, exist_ok=True)
     total_files = len(csv_files)
     processed_count = skipped_count = error_count = 0
     for i, csv_file in enumerate(csv_files):
@@ -367,6 +377,29 @@ def process_folder_batch(
     if output_cb:
         output_cb("\nMerging per-polygon files...")
     merge_per_polygon_files(batch_output_dir, polygon_file_path, output_cb=output_cb)
+    if progress_cb:
+        progress_cb(90)
+    if use_local_temp:
+        final_dir = output_dir / f"batch_{timestamp}"
+        try:
+            final_dir.mkdir(parents=True, exist_ok=True)
+            for item in batch_output_dir.rglob("*"):
+                if item.is_file():
+                    rel = item.relative_to(batch_output_dir)
+                    dest = final_dir / rel
+                    dest.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(item, dest)
+            try:
+                shutil.rmtree(batch_output_dir, ignore_errors=True)
+            except Exception:
+                pass
+            if output_cb:
+                output_cb(f"Results copied to: {final_dir}")
+            batch_output_dir = final_dir
+        except OSError as e:
+            logger.warning("Could not copy batch results to network folder: %s", e)
+            if output_cb:
+                output_cb(f"⚠ Could not copy to {final_dir}; results left in: {batch_output_dir}")
     if progress_cb:
         progress_cb(100)
     if output_cb:

@@ -6,6 +6,8 @@ Handles adding columns from LMD data to Details data using Polars.
 import gc
 import logging
 import os
+import shutil
+import tempfile
 from datetime import datetime
 from pathlib import Path
 from typing import Callable, List, Optional, Tuple
@@ -14,6 +16,7 @@ from typing import Callable, List, Optional, Tuple
 from utils.lazy_imports import polars as pl
 
 from utils.file_lock import FileLock, FileLockTimeout
+from utils.path_utils import is_network_path
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +68,8 @@ class AddColumnsProcessor:
         return True
 
     def process_files(self, lmd_file_path: str, details_file_path: str,
-                     selected_columns: List[str], chunk_size: int = 10000) -> Optional[str]:
+                     selected_columns: List[str], chunk_size: int = 10000,
+                     tolerance_seconds: int = 60) -> Optional[str]:
         """
         Process files to add columns from LMD to Details data.
 
@@ -74,6 +78,7 @@ class AddColumnsProcessor:
             details_file_path: Path to Combined Details CSV file
             selected_columns: List of columns to add/update
             chunk_size: Number of rows to process per chunk
+            tolerance_seconds: Max time difference (seconds) for timestamp-based join; default 60
 
         Returns:
             Path to output file if successful, None otherwise
@@ -121,18 +126,26 @@ class AddColumnsProcessor:
             output_file_name = f"{base_name}_updated_{current_date}.csv"
             output_file_path = os.path.join(base_path, output_file_name)
 
-            # Check write permissions
-            if os.path.exists(output_file_path) and not os.access(output_file_path, os.W_OK):
-                error_msg = f"Permission denied: Cannot write to file {output_file_path}"
-                logger.error(error_msg)
-                self._emit_progress(error_msg)
-                return None
+            # When output is on network, write to system temp first then copy (avoids Permission denied)
+            write_path = output_file_path
+            if is_network_path(output_file_path):
+                fd, write_path = tempfile.mkstemp(suffix=".csv", prefix="addcols_", dir=tempfile.gettempdir())
+                os.close(fd)
+                logger.info("Output path is on network; writing to temp then copying")
+                self._emit_progress("Output on network drive – writing to temporary location, then copying result")
 
-            if not os.access(base_path, os.W_OK):
-                error_msg = f"Permission denied: Cannot write to directory {base_path}"
-                logger.error(error_msg)
-                self._emit_progress(error_msg)
-                return None
+            # Check write permissions (for final path when not using temp)
+            if write_path == output_file_path:
+                if os.path.exists(output_file_path) and not os.access(output_file_path, os.W_OK):
+                    error_msg = f"Permission denied: Cannot write to file {output_file_path}"
+                    logger.error(error_msg)
+                    self._emit_progress(error_msg)
+                    return None
+                if not os.access(base_path, os.W_OK):
+                    error_msg = f"Permission denied: Cannot write to directory {base_path}"
+                    logger.error(error_msg)
+                    self._emit_progress(error_msg)
+                    return None
 
             self._emit_progress(f"✓ Output file: {output_file_path}")
             self._emit_progress("")
@@ -141,11 +154,22 @@ class AddColumnsProcessor:
             self._emit_progress("STEP 3: PROCESSING DETAILS FILE AND JOINING WITH LMD")
             self._emit_progress("-" * 80)
             result = self._process_details_file(
-                details_file_path, output_file_path, lmd_lookup,
-                selected_columns, chunk_size, row_count
+                details_file_path, write_path, lmd_lookup,
+                selected_columns, chunk_size, row_count, tolerance_seconds
             )
 
             if result:
+                if write_path != output_file_path:
+                    try:
+                        shutil.copy2(write_path, output_file_path)
+                        try:
+                            os.remove(write_path)
+                        except OSError:
+                            pass
+                        self._emit_progress("✓ Result copied to output location")
+                    except OSError as e:
+                        logger.warning("Could not copy result to network path: %s", e)
+                        self._emit_progress(f"⚠ Result saved to: {write_path}")
                 self._emit_progress("")
                 self._emit_progress("=" * 80)
                 self._emit_progress("✓ ADD COLUMNS PROCESSING COMPLETED SUCCESSFULLY")
@@ -229,8 +253,13 @@ class AddColumnsProcessor:
                         )
                     )
                     .otherwise(
-                        # DD/MM/YYYY format: 09/08/2024 22:47:41.387
-                        pl.col("TestDateUTC").str.strptime(pl.Datetime, format="%d/%m/%Y %H:%M:%S%.f", strict=False)
+                        # DD/MM/YYYY (05/12/2025 ...) or DD/MM/YY (18/02/26 ...)
+                        # Use 2-digit year when date part ends with 2-digit year (avoid "18/02/26" parsed as year 26 AD)
+                        pl.when(
+                            pl.col("TestDateUTC").str.split(" ").list.first().str.split("/").list.last().str.len_chars() == 2
+                        )
+                        .then(pl.col("TestDateUTC").str.strptime(pl.Datetime, format="%d/%m/%y %H:%M:%S%.f", strict=False))
+                        .otherwise(pl.col("TestDateUTC").str.strptime(pl.Datetime, format="%d/%m/%Y %H:%M:%S%.f", strict=False))
                         .cast(pl.Int64) / 1_000_000
                     )
                     .alias("_timestamp")
@@ -257,7 +286,7 @@ class AddColumnsProcessor:
             if iso_without_z_count > 0:
                 self._emit_progress(f"   • ISO without Z (YYYY-MM-DDTHH:MM:SS.fff): {iso_without_z_count:,} records")
             if ddmm_count > 0:
-                self._emit_progress(f"   • DD/MM/YYYY (DD/MM/YYYY HH:MM:SS.fff): {ddmm_count:,} records")
+                self._emit_progress(f"   • DD/MM/YYYY or DD/MM/YY (DD/MM/YYYY or DD/MM/YY HH:MM:SS.fff): {ddmm_count:,} records")
 
             # Create lookup DataFrame with unique keys - keep first occurrence for each key
             lmd_lookup = lmd_df.unique(subset=['Filename', 'lmd_sequence_num'], keep='first').sort(['_timestamp'])
@@ -273,7 +302,7 @@ class AddColumnsProcessor:
 
     def _process_details_file(self, details_file_path: str, output_file_path: str,
                             lmd_lookup: pl.DataFrame, selected_columns: List[str],
-                            chunk_size: int, total_rows: int) -> bool:
+                            chunk_size: int, total_rows: int, tolerance_seconds: int = 60) -> bool:
         """Process details file in chunks and write output using join_asof."""
         try:
             # Read sample to get existing columns
@@ -292,7 +321,11 @@ class AddColumnsProcessor:
                 if removed_duplicates > 0:
                     self._emit_progress(f"✓ Removed {removed_duplicates} duplicate TestDateUTC rows from Details")
                     # Write cleaned details file to a temp location, then use it for processing
-                    temp_details_path = details_file_path + ".temp_dedup"
+                    if is_network_path(details_file_path):
+                        fd, temp_details_path = tempfile.mkstemp(suffix=".temp_dedup.csv", prefix="details_", dir=tempfile.gettempdir())
+                        os.close(fd)
+                    else:
+                        temp_details_path = details_file_path + ".temp_dedup"
                     details_full.write_csv(temp_details_path, null_value='', line_terminator='\r\n')
                     details_file_path = temp_details_path
                     total_rows = len(details_full)
@@ -305,7 +338,7 @@ class AddColumnsProcessor:
 
             self._emit_progress(f"🔄 Updating {len(common_columns)} existing columns")
             self._emit_progress(f"➕ Adding {len(new_columns)} new columns: {new_columns}")
-            self._emit_progress(f"🔗 Starting timestamp-based matching with 60-second tolerance...")
+            self._emit_progress(f"🔗 Starting timestamp-based matching with {tolerance_seconds}-second tolerance...")
 
             # Final output columns: original + new columns
             final_columns = list(existing_columns) + new_columns
@@ -329,7 +362,7 @@ class AddColumnsProcessor:
                 infer_schema_length=0
             )
             
-            for chunk in batched_reader.next_batches(chunk_size):
+            for chunk_idx, chunk in enumerate(batched_reader.next_batches(chunk_size)):
                 if chunk.is_empty():
                     break
 
@@ -360,8 +393,13 @@ class AddColumnsProcessor:
                             )
                         )
                         .otherwise(
-                            # DD/MM/YYYY format: 09/08/2024 22:47:41.387
-                            pl.col("TestDateUTC").str.strptime(pl.Datetime, format="%d/%m/%Y %H:%M:%S%.f", strict=False)
+                            # DD/MM/YYYY (05/12/2025 ...) or DD/MM/YY (18/02/26 ...)
+                            # Use 2-digit year when date part ends with 2-digit year (avoid "18/02/26" parsed as year 26 AD)
+                            pl.when(
+                                pl.col("TestDateUTC").str.split(" ").list.first().str.split("/").list.last().str.len_chars() == 2
+                            )
+                            .then(pl.col("TestDateUTC").str.strptime(pl.Datetime, format="%d/%m/%y %H:%M:%S%.f", strict=False))
+                            .otherwise(pl.col("TestDateUTC").str.strptime(pl.Datetime, format="%d/%m/%Y %H:%M:%S%.f", strict=False))
                             .cast(pl.Int64) / 1_000_000
                         )
                         .alias("_timestamp")
@@ -384,11 +422,11 @@ class AddColumnsProcessor:
                 chunk = chunk.sort("_timestamp")
 
                 # Perform asof join with LMD lookup on timestamp
-                # Use larger tolerance to account for potential time differences
+                # _timestamp is in seconds (Datetime cast Int64 / 1_000_000), so tolerance is in seconds
                 joined_chunk = chunk.join_asof(
                     lmd_lookup,
                     on="_timestamp",
-                    tolerance=60_000_000,  # 60 seconds tolerance in microseconds
+                    tolerance=tolerance_seconds,
                     suffix="_lmd"
                 )
 
@@ -463,16 +501,17 @@ class AddColumnsProcessor:
                         f.write(joined_chunk.write_csv(include_header=False, line_terminator='\r\n'))
 
                 # Clean up chunk to free memory
+                chunk_len = len(chunk)
                 del joined_chunk
                 del chunk
                 if chunk_idx % 10 == 0:  # Every 10 chunks
                     gc.collect()
 
-                processed_rows += len(chunk)
+                processed_rows += chunk_len
                 
                 # Log progress with match statistics
                 if chunk_records_updated > 0:
-                    self._emit_progress(f"  Processed {processed_rows:,}/{total_rows:,} rows | Chunk matches: {chunk_records_updated}/{len(chunk)} records updated")
+                    self._emit_progress(f"  Processed {processed_rows:,}/{total_rows:,} rows | Chunk matches: {chunk_records_updated}/{chunk_len} records updated")
                 else:
                     self._emit_progress(f"  Processed {processed_rows:,}/{total_rows:,} rows | No matches in this chunk")
 
@@ -488,7 +527,7 @@ class AddColumnsProcessor:
             if details_iso_without_z > 0:
                 self._emit_progress(f"   • ISO without Z (YYYY-MM-DDTHH:MM:SS.fff): {details_iso_without_z:,} records")
             if details_ddmm > 0:
-                self._emit_progress(f"   • DD/MM/YYYY (DD/MM/YYYY HH:MM:SS.fff): {details_ddmm:,} records")
+                self._emit_progress(f"   • DD/MM/YYYY or DD/MM/YY (DD/MM/YYYY or DD/MM/YY HH:MM:SS.fff): {details_ddmm:,} records")
             self._emit_progress(f"")
             
             self._emit_progress(f"📊 MATCHING STATISTICS:")
@@ -502,12 +541,11 @@ class AddColumnsProcessor:
                 column_status = "✓ Added/Updated" if col in new_columns else "🔄 Updated existing"
                 self._emit_progress(f"   {i}. {col} - {column_status}")
             
-            # Clean up temp file if created
-            temp_path = details_file_path + ".temp_dedup" if not details_file_path.endswith(".temp_dedup") else details_file_path
-            if os.path.exists(temp_path) and temp_path.endswith(".temp_dedup"):
+            # Clean up temp dedup file if we created one
+            if "temp_dedup" in details_file_path and os.path.exists(details_file_path):
                 try:
-                    os.remove(temp_path)
-                except:
+                    os.remove(details_file_path)
+                except OSError:
                     pass
             
             return True

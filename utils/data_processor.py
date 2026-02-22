@@ -17,6 +17,7 @@ from utils.lazy_imports import polars as pl
 import psutil
 
 from utils.file_lock import FileLock, FileLockTimeout
+from utils.path_utils import is_network_path
 
 logger = logging.getLogger(__name__)
 
@@ -175,19 +176,35 @@ def _cleanup_stale_temp_dirs(near_path: str, prefix: str, max_age_seconds: float
         pass
 
 
-def _temp_dir_near(output_file: str, prefix: str = "csv_safe_") -> str:
+def _temp_dir_near(output_file: str, prefix: str = "csv_safe_", log_func=None) -> str:
     """
     Create a temp directory on the **same drive/volume** as *output_file*
     so we never fill the system temp (usually C:) with large intermediate data.
 
-    Falls back to the system temp dir if the output directory is not writable.
+    Uses system temp dir if output is on a network share (UNC/network drive),
+    to avoid Permission denied when writing temp files on the network.
+    Falls back to system temp if the output directory is not writable.
     """
+    if is_network_path(output_file):
+        logger.info(
+            "Output is on a network path; using system temp for intermediate files to avoid permission errors"
+        )
+        if log_func:
+            try:
+                log_func("Output on network drive – using system temp for intermediate files")
+            except Exception:
+                pass
+        return tempfile.mkdtemp(prefix=prefix)
     out_dir = os.path.dirname(os.path.abspath(output_file))
     try:
         os.makedirs(out_dir, exist_ok=True)
         return tempfile.mkdtemp(prefix=prefix, dir=out_dir)
     except OSError:
-        # Fall back to system temp
+        if log_func:
+            try:
+                log_func("Could not create temp near output – using system temp")
+            except Exception:
+                pass
         return tempfile.mkdtemp(prefix=prefix)
 
 
@@ -233,7 +250,7 @@ def _get_progress_file_logger():
     return fl
 
 
-def process_data(input_file: str, output_file: str, progress_callback=None) -> None:
+def process_data(input_file: str, output_file: str, progress_callback=None, remove_duplicates: bool = True) -> None:
     """
     MEMORY-SAFE ultra-fast CSV processor for large LMD files (Polars only).
     
@@ -242,6 +259,7 @@ def process_data(input_file: str, output_file: str, progress_callback=None) -> N
     - Real-time memory monitoring
     - Automatic memory pressure relief
     - Adaptive batch sizing based on current memory
+    - Optional dedup by TestDateUTC (when remove_duplicates=True)
     """
     _flog = _get_progress_file_logger()
 
@@ -301,11 +319,12 @@ def process_data(input_file: str, output_file: str, progress_callback=None) -> N
             log_func(f"Using MEMORY-SAFE CHUNKED mode (file {file_size_gb:.1f} GB, RAM cap {safe_ram_gb:.1f} GB)", percent=5)
             _process_memory_safe_ultra_fast(
                 input_file, output_file, log_func, file_size_gb, effective_cpu,
-                safe_ram_gb=safe_ram_gb, max_workers_cap=max_workers_cap, dedup_cap=dedup_cap
+                safe_ram_gb=safe_ram_gb, max_workers_cap=max_workers_cap, dedup_cap=dedup_cap,
+                remove_duplicates=remove_duplicates,
             )
         else:
             log_func(f"Using MEMORY-SAFE STANDARD mode (file <= {standard_max_gb} GB)", percent=5)
-            _process_memory_safe_standard(input_file, output_file, log_func, file_size_gb)
+            _process_memory_safe_standard(input_file, output_file, log_func, file_size_gb, remove_duplicates=remove_duplicates)
     finally:
         memory_monitor.stop()
         log_func("Memory monitor stopped", percent=100)
@@ -638,6 +657,7 @@ def _process_memory_safe_ultra_fast(
     safe_ram_gb: float = 48.0,
     max_workers_cap: int = 2,
     dedup_cap: int = 5_000_000,
+    remove_duplicates: bool = True,
 ) -> None:
     """
     MEMORY-SAFE chunked processing with strict RAM cap.
@@ -677,14 +697,15 @@ def _process_memory_safe_ultra_fast(
         partition_ranges.append((i, start_row, end_row))
     
     # === PHASE 1: Parallel filtering with STREAMING WRITE ===
-    log_func(f"PHASE 1: File {os.path.basename(input_file)} – processing {num_partitions} chunks (dedup streaming)...", percent=10)
+    phase1_label = "dedup streaming" if remove_duplicates else "filter only (no dedup)"
+    log_func(f"PHASE 1: File {os.path.basename(input_file)} – processing {num_partitions} chunks ({phase1_label})...", percent=10)
     phase1_start = time.time()
     
     # Clean up stale temp dirs from previous crashed runs
     _cleanup_stale_temp_dirs(output_file, "csv_safe_", max_age_seconds=3600)
 
-    # Temp dir on the SAME drive as the output file to avoid filling system temp
-    temp_dir = _temp_dir_near(output_file, prefix="csv_safe_")
+    # Temp dir on the SAME drive as the output file (or system temp if output is on network)
+    temp_dir = _temp_dir_near(output_file, prefix="csv_safe_", log_func=log_func)
     log_func(f"Temp directory: {temp_dir}")
     temp_output = os.path.join(temp_dir, "temp_output.csv")
 
@@ -730,12 +751,12 @@ def _process_memory_safe_ultra_fast(
             batch_mem = memory_monitor.get_current_usage_gb()
             log_func(f"  Batch complete, memory: {batch_mem:.1f}GB")
 
-        # === PHASE: Deduplicate and write to output ===
+        # === PHASE: Deduplicate and write to output (or write all rows if remove_duplicates=False) ===
         # Strategy: use in-memory set until cap, then switch to SQLite.
         # SQLite uses batch temp-table + LEFT JOIN for 10-50x faster dedup.
         dedup_use_sqlite = False
         dedup_conn = None
-        testdate_col = "TestDateUTC" if "TestDateUTC" in columns else None
+        testdate_col = "TestDateUTC" if (remove_duplicates and "TestDateUTC" in columns) else None
 
         def _switch_to_sqlite():
             """Migrate in-memory set to SQLite for unbounded dedup."""
@@ -802,7 +823,7 @@ def _process_memory_safe_ultra_fast(
 
         try:
             with open(temp_output, 'w', encoding='utf-8', newline='') as f_out:
-                f_out.write(','.join(columns) + '\n')
+                f_out.write(','.join(columns) + '\r\n')
                 for chunk_id, chunk_file, stats in sorted(temp_chunk_files):
                     chunk_df = pl.read_csv(
                         chunk_file,
@@ -864,11 +885,14 @@ def _process_memory_safe_ultra_fast(
                 dedup_conn = None
 
         phase1_time = time.time() - phase1_start
-        log_func(
-            f"Phase 1 complete in {phase1_time:.2f}s: "
-            f"{total_written_rows:,} unique rows, "
-            f"{total_duplicate_rows:,} duplicates removed"
-        )
+        if remove_duplicates:
+            log_func(
+                f"Phase 1 complete in {phase1_time:.2f}s: "
+                f"{total_written_rows:,} unique rows, "
+                f"{total_duplicate_rows:,} duplicates removed"
+            )
+        else:
+            log_func(f"Phase 1 complete in {phase1_time:.2f}s: {total_written_rows:,} rows (no dedup)")
 
         # === PHASE 2: Move temp file to final output ===
         log_func(f"PHASE 2: Writing final file: {os.path.basename(output_file)}", percent=90)
@@ -938,8 +962,9 @@ def _process_memory_safe_standard(
     output_file: str,
     log_func,
     file_size_gb: float,
+    remove_duplicates: bool = True,
 ) -> None:
-    """Standard mode for small files: single read, filter, dedup, write. Uses fast read when file < 0.4 GB."""
+    """Standard mode for small files: single read, filter, optional dedup, write. Uses fast read when file < 0.4 GB."""
     start_time = time.time()
     process = psutil.Process(os.getpid())
     initial_memory = process.memory_info().rss / 1024 / 1024
@@ -967,7 +992,7 @@ def _process_memory_safe_standard(
     log_func(f"  Loaded: {len(df):,} rows", percent=30)
     start_rows = len(df)
 
-    log_func("  Applying filters (required column, TrailingFactor, Lane, Ignore, then dedup)...", percent=40)
+    log_func(f"  Applying filters (required column, TrailingFactor, Lane, Ignore{f', then dedup' if remove_duplicates else ''})...", percent=40)
     # Apply all filters first so dedup runs on fewer rows (faster)
     df = df.filter(df[first_col].is_not_null() & (df[first_col] != ""))
 
@@ -994,8 +1019,8 @@ def _process_memory_safe_standard(
             (df["Ignore"].str.to_lowercase() != "true")
             & (df["Ignore"].is_not_null())
         )
-    # Dedup last so it runs on fewer rows
-    if "TestDateUTC" in df.columns:
+    # Dedup last so it runs on fewer rows (only when enabled)
+    if remove_duplicates and "TestDateUTC" in df.columns:
         df = df.unique(subset=["TestDateUTC"], keep="first", maintain_order=True)
 
     log_func(f"  After filter: {len(df):,} rows (removed {start_rows - len(df):,})", percent=60)
@@ -1045,6 +1070,7 @@ def merge_then_clean_folder(
     output_file: str,
     progress_callback=None,
     cancel_check=None,
+    remove_duplicates: bool = True,
 ) -> None:
     """
     Fast folder workflow: merge all CSVs with byte copy (no parse), then clean once.
@@ -1052,7 +1078,7 @@ def merge_then_clean_folder(
 
     Steps:
       1. Fast merge: first file full, rest append from line 2 (header from first only).
-      2. Single process_data(combined, output_file) for filter + dedup.
+      2. Single process_data(combined, output_file) for filter + optional dedup.
     """
     _flog = _get_progress_file_logger()
 
@@ -1094,7 +1120,7 @@ def merge_then_clean_folder(
     needed_gb = total_input_gb * 1.1 + total_input_gb * 0.5  # combined + margin for clean temp
     _check_disk_space(output_file, needed_gb=needed_gb, log_func=log_func)
 
-    temp_dir = _temp_dir_near(output_file, prefix="lmd_merge_fast_")
+    temp_dir = _temp_dir_near(output_file, prefix="lmd_merge_fast_", log_func=log_func)
     combined_path = os.path.join(temp_dir, "combined.csv")
 
     try:
@@ -1115,8 +1141,9 @@ def merge_then_clean_folder(
         combined_gb = os.path.getsize(combined_path) / (1024 ** 3)
         log_func(f"  Merged -> {combined_path} ({combined_gb:.2f} GB)", percent=15)
 
-        log_func("Step 2: Cleaning (filter + dedup, single pass)...", percent=18)
-        process_data(combined_path, output_file, progress_callback=_progress_with_offset(progress_callback, 20, 80))
+        step2_msg = "Step 2: Cleaning (filter + dedup, single pass)..." if remove_duplicates else "Step 2: Cleaning (filter only, single pass)..."
+        log_func(step2_msg, percent=18)
+        process_data(combined_path, output_file, progress_callback=_progress_with_offset(progress_callback, 20, 80), remove_duplicates=remove_duplicates)
         log_func("Folder processing complete.", percent=100)
     finally:
         try:
@@ -1220,8 +1247,8 @@ def merge_and_clean_folder(
         _cleanup_stale_temp_dirs(output_file, "lmd_merge_", max_age_seconds=3600)
 
         log_func(f"Output: {os.path.abspath(output_file)}")
-        # Temp dir on the SAME drive as output to avoid filling system temp
-        temp_dir = _temp_dir_near(output_file, prefix="lmd_merge_")
+        # Temp dir on the SAME drive as output (or system temp if output is on network)
+        temp_dir = _temp_dir_near(output_file, prefix="lmd_merge_", log_func=log_func)
         log_func(f"Temp directory: {temp_dir}")
 
         try:
@@ -1309,7 +1336,7 @@ def merge_and_clean_folder(
             total_dupes = 0
 
             with open(temp_merged, "w", encoding="utf-8", newline="") as f_out:
-                f_out.write(",".join(expected_columns) + "\n")
+                f_out.write(",".join(expected_columns) + "\r\n")
 
                 for i, csv_file in enumerate(files_to_process, 1):
                     if _cancelled():

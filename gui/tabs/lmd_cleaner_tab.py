@@ -99,12 +99,13 @@ class ProcessingWorker(QThread):
     done = pyqtSignal(bool, str)
 
     def __init__(self, input_path: str, output_file: str,
-                 is_folder: bool = False, timeout: int = 7200):
+                 is_folder: bool = False, timeout: int = 7200, remove_duplicates: bool = True):
         super().__init__()
         self.input_path = input_path
         self.output_file = output_file
         self.is_folder = is_folder
         self.timeout = timeout
+        self.remove_duplicates = remove_duplicates
         self._is_cancelled = False
         self._start_time = None
 
@@ -146,21 +147,26 @@ class ProcessingWorker(QThread):
                 self.progress_percent.emit(min(100, max(0, int(percent))))
 
         try:
+            dedup_status = "Remove duplicates: enabled (by TestDateUTC)" if self.remove_duplicates else "Remove duplicates: disabled (filter only)"
             if self.is_folder:
                 self._log("Processing folder (fast merge then clean)...")
+                self._log(dedup_status)
                 merge_then_clean_folder(
                     folder_path=self.input_path,
                     output_file=self.output_file,
                     progress_callback=progress_callback,
                     cancel_check=self._is_cancel_requested,
+                    remove_duplicates=self.remove_duplicates,
                 )
                 self._log("Folder processing complete")
             else:
                 self._log("Processing single file...")
+                self._log(dedup_status)
                 process_data(
                     self.input_path,
                     self.output_file,
                     progress_callback=progress_callback,
+                    remove_duplicates=self.remove_duplicates,
                 )
 
             # Timeout guard
@@ -302,6 +308,12 @@ class LMDCleanerTab(QWidget):
 
         files_layout.addLayout(output_layout)
         layout.addWidget(files_group)
+
+        # Remove duplicates option
+        self.remove_duplicates_cb = QCheckBox("Remove duplicates (by TestDateUTC)")
+        self.remove_duplicates_cb.setChecked(True)
+        self.remove_duplicates_cb.setToolTip("When checked, rows with duplicate TestDateUTC are removed (first occurrence kept). Uncheck to keep all rows and only apply filters.")
+        layout.addWidget(self.remove_duplicates_cb)
 
         # Skip confirmation (faster repeat runs)
         self.skip_confirm_cb = QCheckBox("Skip confirmation dialog (this session)")
@@ -475,6 +487,7 @@ class LMDCleanerTab(QWidget):
             return
 
         # Show confirmation dialog
+        remove_duplicates = self.remove_duplicates_cb.isChecked()
         if is_folder:
             # Count CSV files in folder
             csv_count = len([f for f in os.listdir(input_path) if f.lower().endswith('.csv')])
@@ -482,16 +495,18 @@ class LMDCleanerTab(QWidget):
                 QMessageBox.critical(self, "No CSV Files", f"No CSV files found in folder: {input_path}")
                 return
 
+            step2 = "filter and deduplicate the combined file" if remove_duplicates else "filter the combined file (no deduplication)"
             msg = (f"Folder Processing Mode (Fast merge then clean)\n\n"
                    f"Found {csv_count} CSV file(s) in the selected folder.\n"
                    f"The system will:\n"
                    f"1. Fast merge: combine all CSVs (byte copy, header from first file)\n"
-                   f"2. Clean once: filter and deduplicate the combined file\n\n"
+                   f"2. Clean once: {step2}\n\n"
                    f"Faster than cleaning each file then merging.\n\n"
                    f"Continue?")
         else:
-            msg = ("Single File Processing Mode\n\n"
-                   f"The system will clean and deduplicate the selected CSV file.\n\n"
+            action = "clean and deduplicate" if remove_duplicates else "clean (filter only, no deduplication)"
+            msg = (f"Single File Processing Mode\n\n"
+                   f"The system will {action} the selected CSV file.\n\n"
                    f"Continue with file processing?")
 
         if not self.skip_confirm_cb.isChecked():
@@ -515,7 +530,7 @@ class LMDCleanerTab(QWidget):
         self.process_btn.style().polish(self.process_btn)
 
         # Start worker thread to keep UI responsive
-        self.worker = ProcessingWorker(input_path, output_file, is_folder)
+        self.worker = ProcessingWorker(input_path, output_file, is_folder, remove_duplicates=remove_duplicates)
         self.worker.log_message.connect(self._append_log_from_worker)
         self.worker.progress_percent.connect(self.progress.setValue)
         self.worker.done.connect(self._worker_finished)

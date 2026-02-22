@@ -6,6 +6,7 @@ Provides utilities for safely writing files with automatic backups
 import logging
 import os
 import shutil
+import tempfile
 from datetime import datetime
 from pathlib import Path
 from typing import Callable, Optional
@@ -14,6 +15,7 @@ from typing import Callable, Optional
 from utils.lazy_imports import polars as pl
 
 from utils.file_lock import FileLock, FileLockTimeout
+from utils.path_utils import is_network_path
 
 logger = logging.getLogger(__name__)
 
@@ -166,8 +168,16 @@ def safe_write_dataframe(
             if backup_path:
                 log(f"✓ Created backup: {Path(backup_path).name}")
         
-        # Step 2: Write to temporary file
-        temp_path = output_path.parent / f"{output_path.stem}.tmp{output_path.suffix}"
+        # Step 2: Write to temporary file (use system temp when output is on network)
+        if is_network_path(str(output_path)):
+            temp_path = Path(tempfile.gettempdir()) / f"{output_path.stem}.tmp{output_path.suffix}"
+            # Ensure unique name
+            n = 0
+            while temp_path.exists():
+                n += 1
+                temp_path = Path(tempfile.gettempdir()) / f"{output_path.stem}_{n}.tmp{output_path.suffix}"
+        else:
+            temp_path = output_path.parent / f"{output_path.stem}.tmp{output_path.suffix}"
         
         log(f"Writing to temporary file...")
         try:
@@ -209,10 +219,17 @@ def safe_write_dataframe(
                 
                 return False
         
-        # Step 4: Atomic rename to final destination
+        # Step 4: Move/copy to final destination
         try:
-            # Use replace for atomic operation (overwrites if exists)
-            temp_path.replace(output_path)
+            if is_network_path(str(output_path)):
+                shutil.copy2(str(temp_path), str(output_path))
+                try:
+                    temp_path.unlink(missing_ok=True)
+                except OSError:
+                    pass
+            else:
+                # Use replace for atomic operation (overwrites if exists)
+                temp_path.replace(output_path)
             log(f"✓ Successfully wrote {len(df):,} rows to {output_path.name}")
             
         except Exception as e:

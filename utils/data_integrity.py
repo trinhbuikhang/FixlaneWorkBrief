@@ -71,7 +71,7 @@ class DataIntegrityChecker:
             Tuple of (is_valid, message)
         
         Example:
-            df.write_csv('output.csv')
+            df.write_csv('output.csv', line_terminator='\r\n')
             is_valid, msg = DataIntegrityChecker.verify_csv_integrity(df, 'output.csv')
             if not is_valid:
                 raise RuntimeError(f"Integrity check failed: {msg}")
@@ -279,8 +279,8 @@ class DataIntegrityChecker:
         checksum_file = f"{file_path}.{algorithm}"
         
         try:
-            with open(checksum_file, 'w') as f:
-                f.write(f"{checksum}  {Path(file_path).name}\n")
+            with open(checksum_file, 'w', newline='') as f:
+                f.write(f"{checksum}  {Path(file_path).name}\r\n")
             
             logger.debug(f"Saved checksum to {checksum_file}")
             
@@ -346,7 +346,7 @@ if __name__ == '__main__':
     
     # Write to file
     test_file = 'test_integrity.csv'
-    test_df.write_csv(test_file)
+    test_df.write_csv(test_file, line_terminator='\r\n')
     
     # Verify integrity
     is_valid, message = DataIntegrityChecker.verify_csv_integrity(test_df, test_file)

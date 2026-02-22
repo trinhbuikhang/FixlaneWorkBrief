@@ -26,7 +26,7 @@ class TestDataIntegrityChecker:
     def test_calculate_file_checksum(self, tmp_path, sample_dataframe):
         """Test file checksum calculation"""
         test_file = tmp_path / "test.csv"
-        sample_dataframe.write_csv(test_file)
+        sample_dataframe.write_csv(test_file, line_terminator='\r\n')
         
         # Calculate SHA256 checksum
         checksum = DataIntegrityChecker.calculate_file_checksum(str(test_file))
@@ -41,7 +41,7 @@ class TestDataIntegrityChecker:
     def test_calculate_different_algorithms(self, tmp_path, sample_dataframe):
         """Test different hash algorithms"""
         test_file = tmp_path / "test.csv"
-        sample_dataframe.write_csv(test_file)
+        sample_dataframe.write_csv(test_file, line_terminator='\r\n')
         
         md5 = DataIntegrityChecker.calculate_file_checksum(str(test_file), 'md5')
         sha1 = DataIntegrityChecker.calculate_file_checksum(str(test_file), 'sha1')
@@ -55,7 +55,7 @@ class TestDataIntegrityChecker:
     def test_verify_csv_integrity_valid(self, tmp_path, sample_dataframe):
         """Test CSV integrity verification for valid file"""
         test_file = tmp_path / "test.csv"
-        sample_dataframe.write_csv(test_file)
+        sample_dataframe.write_csv(test_file, line_terminator='\r\n')
         
         is_valid, message = DataIntegrityChecker.verify_csv_integrity(
             sample_dataframe,
@@ -71,7 +71,7 @@ class TestDataIntegrityChecker:
         
         # Write different data
         modified_df = sample_dataframe.head(3)
-        modified_df.write_csv(test_file)
+        modified_df.write_csv(test_file, line_terminator='\r\n')
         
         is_valid, message = DataIntegrityChecker.verify_csv_integrity(
             sample_dataframe,
@@ -95,7 +95,7 @@ class TestDataIntegrityChecker:
             'Column3': ['x', 'y', 'z']  # Different column name
         })
         
-        different_df.write_csv(test_file)
+        different_df.write_csv(test_file, line_terminator='\r\n')
         
         is_valid, message = DataIntegrityChecker.verify_csv_integrity(
             original_df,
@@ -119,7 +119,7 @@ class TestDataIntegrityChecker:
             'Column2': ['a', 'b', 'c']
         })
         
-        modified_df.write_csv(test_file)
+        modified_df.write_csv(test_file, line_terminator='\r\n')
         
         is_valid, message = DataIntegrityChecker.verify_csv_integrity(
             original_df,
@@ -143,7 +143,7 @@ class TestDataIntegrityChecker:
     def test_verify_file_size_valid(self, tmp_path, sample_dataframe):
         """Test file size verification"""
         test_file = tmp_path / "test.csv"
-        sample_dataframe.write_csv(test_file)
+        sample_dataframe.write_csv(test_file, line_terminator='\r\n')
         
         file_size = test_file.stat().st_size
         
@@ -159,7 +159,7 @@ class TestDataIntegrityChecker:
     def test_verify_file_size_too_small(self, tmp_path, sample_dataframe):
         """Test file size too small"""
         test_file = tmp_path / "test.csv"
-        sample_dataframe.write_csv(test_file)
+        sample_dataframe.write_csv(test_file, line_terminator='\r\n')
         
         is_valid, message = DataIntegrityChecker.verify_file_size(
             str(test_file),
@@ -172,7 +172,7 @@ class TestDataIntegrityChecker:
     def test_verify_file_size_too_large(self, tmp_path, sample_dataframe):
         """Test file size too large"""
         test_file = tmp_path / "test.csv"
-        sample_dataframe.write_csv(test_file)
+        sample_dataframe.write_csv(test_file, line_terminator='\r\n')
         
         is_valid, message = DataIntegrityChecker.verify_file_size(
             str(test_file),
@@ -185,7 +185,7 @@ class TestDataIntegrityChecker:
     def test_save_and_verify_checksum_file(self, tmp_path, sample_dataframe):
         """Test saving and verifying checksum file"""
         test_file = tmp_path / "test.csv"
-        sample_dataframe.write_csv(test_file)
+        sample_dataframe.write_csv(test_file, line_terminator='\r\n')
         
         # Calculate and save checksum
         checksum = DataIntegrityChecker.calculate_file_checksum(str(test_file))
@@ -203,7 +203,7 @@ class TestDataIntegrityChecker:
     def test_verify_checksum_file_mismatch(self, tmp_path, sample_dataframe):
         """Test checksum verification with file modification"""
         test_file = tmp_path / "test.csv"
-        sample_dataframe.write_csv(test_file)
+        sample_dataframe.write_csv(test_file, line_terminator='\r\n')
         
         # Save checksum
         checksum = DataIntegrityChecker.calculate_file_checksum(str(test_file))
@@ -211,7 +211,7 @@ class TestDataIntegrityChecker:
         
         # Modify the file
         modified_df = sample_dataframe.with_columns(pl.lit(999).alias('Column4'))
-        modified_df.write_csv(test_file)
+        modified_df.write_csv(test_file, line_terminator='\r\n')
         
         # Verify should fail
         is_valid, message = DataIntegrityChecker.verify_checksum_file(str(test_file))
@@ -221,7 +221,7 @@ class TestDataIntegrityChecker:
     def test_create_integrity_report(self, tmp_path, sample_dataframe):
         """Test creating comprehensive integrity report"""
         test_file = tmp_path / "test.csv"
-        sample_dataframe.write_csv(test_file)
+        sample_dataframe.write_csv(test_file, line_terminator='\r\n')
         
         report = DataIntegrityChecker.create_integrity_report(
             str(test_file),

@@ -28,6 +28,7 @@ from PyQt6.QtWidgets import (
     QPushButton,
     QSizePolicy,
     QSpacerItem,
+    QSpinBox,
     QSplitter,
     QTextEdit,
     QVBoxLayout,
@@ -123,6 +124,22 @@ class AddColumnsTab(QWidget):
         lmd_layout.addWidget(self.open_button)
 
         files_layout.addLayout(lmd_layout)
+
+        # Tolerance (seconds) for timestamp-based join
+        tolerance_layout = QHBoxLayout()
+        tolerance_layout.setSpacing(GROUP_SPACING)
+        tolerance_label = QLabel("Tolerance (sec):")
+        tolerance_label.setFixedWidth(LABEL_FIXED_WIDTH)
+        tolerance_layout.addWidget(tolerance_label)
+        self.tolerance_spin = QSpinBox()
+        self.tolerance_spin.setRange(1, 86400)  # 1 second to 24 hours
+        self.tolerance_spin.setValue(60)
+        self.tolerance_spin.setSuffix(" s")
+        self.tolerance_spin.setMinimumWidth(100)
+        self.tolerance_spin.setToolTip("Max time difference (seconds) when matching LMD to Details by timestamp. Default 60.")
+        tolerance_layout.addWidget(self.tolerance_spin)
+        tolerance_layout.addStretch()
+        files_layout.addLayout(tolerance_layout)
 
         files_group.setLayout(files_layout)
         layout.addWidget(files_group)
@@ -325,9 +342,10 @@ class AddColumnsTab(QWidget):
         self.log_text.append(f"[{timestamp}] Selected columns: {', '.join(selected_columns)}")
 
         lmd_file_path = self.combined_lmd["file_path"]
+        tolerance_seconds = self.tolerance_spin.value()
 
         # Start processing thread
-        self.worker = ProcessingWorker(selected_columns, self.combined_details_file, lmd_file_path, chunk_size)
+        self.worker = ProcessingWorker(selected_columns, self.combined_details_file, lmd_file_path, chunk_size, tolerance_seconds)
         self.worker.progress.connect(self.update_progress)
         self.worker.finished.connect(self.processing_finished)
         self.worker.error.connect(self.processing_error)
@@ -403,12 +421,13 @@ class ProcessingWorker(QThread):
     finished = pyqtSignal(str)
     error = pyqtSignal(str)
 
-    def __init__(self, selected_columns, details_file, lmd_file_path, chunk_size):
+    def __init__(self, selected_columns, details_file, lmd_file_path, chunk_size, tolerance_seconds=60):
         super().__init__()
         self.selected_columns = selected_columns
         self.details_file = details_file
         self.lmd_file_path = lmd_file_path
         self.chunk_size = chunk_size
+        self.tolerance_seconds = tolerance_seconds
 
     def _choose_processor(self) -> tuple:
         """Choose appropriate processor based on file sizes and available memory."""
@@ -465,12 +484,12 @@ class ProcessingWorker(QThread):
             if processor_type == "memory_efficient":
                 processor = MemoryEfficientAddColumnsProcessor(progress_callback)
                 output_file_path = processor.process_add_columns(
-                    self.lmd_file_path, self.details_file, self.selected_columns, self.chunk_size
+                    self.lmd_file_path, self.details_file, self.selected_columns, self.chunk_size, self.tolerance_seconds
                 )
             else:
                 processor = AddColumnsProcessor(progress_callback)
                 output_file_path = processor.process_files(
-                    self.lmd_file_path, self.details_file, self.selected_columns, self.chunk_size
+                    self.lmd_file_path, self.details_file, self.selected_columns, self.chunk_size, self.tolerance_seconds
                 )
 
             if output_file_path:

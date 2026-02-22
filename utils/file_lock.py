@@ -21,7 +21,7 @@ class FileLock:
     Usage:
         try:
             with FileLock(output_file, timeout=30):
-                df.write_csv(output_file, include_header=True)
+                df.write_csv(output_file, include_header=True, line_terminator='\r\n')
         except FileLockTimeout:
             print("File is locked by another process")
     """

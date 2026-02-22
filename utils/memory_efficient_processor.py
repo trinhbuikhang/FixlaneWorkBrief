@@ -6,12 +6,15 @@ Uses streaming processing and memory mapping to handle files that don't fit in R
 import gc
 import logging
 import os
+import shutil
+import tempfile
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
 # ⚡ Lazy import for Polars (heavy library)
 from utils.lazy_imports import polars as pl
+from utils.path_utils import is_network_path
 import psutil
 
 logger = logging.getLogger(__name__)
@@ -85,11 +88,15 @@ class MemoryEfficientAddColumnsProcessor:
         try:
             self._emit_progress("📑 Creating LMD index for fast lookups...")
             
-            # Create temporary index file
-            index_file = lmd_file.replace('.csv', '_temp_index.parquet')
+            # Create temporary index file (use system temp when LMD is on network)
+            if is_network_path(lmd_file):
+                fd, index_file = tempfile.mkstemp(suffix='.parquet', prefix='lmd_index_', dir=tempfile.gettempdir())
+                os.close(fd)
+            else:
+                index_file = lmd_file.replace('.csv', '_temp_index.parquet')
             
-            # Check if index already exists and is newer than source
-            if os.path.exists(index_file):
+            # Check if index already exists and is newer than source (only when next to LMD)
+            if not is_network_path(lmd_file) and os.path.exists(index_file):
                 index_mtime = os.path.getmtime(index_file)
                 source_mtime = os.path.getmtime(lmd_file)
                 if index_mtime > source_mtime:
@@ -137,7 +144,11 @@ class MemoryEfficientAddColumnsProcessor:
                         )
                         .otherwise(
                             pl.when(pl.col("TestDateUTC").is_not_null())
-                            .then(pl.col("TestDateUTC").str.strptime(pl.Datetime, format="%d/%m/%Y %H:%M:%S%.f", strict=False))
+                            .then(
+                                pl.when(pl.col("TestDateUTC").str.split(" ").list.first().str.split("/").list.last().str.len_chars() == 2)
+                                .then(pl.col("TestDateUTC").str.strptime(pl.Datetime, format="%d/%m/%y %H:%M:%S%.f", strict=False))
+                                .otherwise(pl.col("TestDateUTC").str.strptime(pl.Datetime, format="%d/%m/%Y %H:%M:%S%.f", strict=False))
+                            )
                             .otherwise(None)
                         )
                         .alias("_timestamp")
@@ -184,8 +195,9 @@ class MemoryEfficientAddColumnsProcessor:
             logger.error(f"Failed to create LMD index: {e}", exc_info=True)
             return None
     
-    def _process_with_streaming(self, lmd_file: str, details_file: str, 
-                               selected_columns: List[str], chunk_size: int = 10000) -> Optional[str]:
+    def _process_with_streaming(self, lmd_file: str, details_file: str,
+                               selected_columns: List[str], chunk_size: int = 10000,
+                               tolerance_seconds: int = 60) -> Optional[str]:
         """Process using streaming method for very large files."""
         lmd_index_file = None
         try:
@@ -204,15 +216,33 @@ class MemoryEfficientAddColumnsProcessor:
             memory_info = self._get_memory_info()
             self._emit_progress(f"✓ Index loaded: {len(lmd_index):,} records ({memory_info['process_memory_mb']:.1f} MB used)")
             
-            # Step 3: Prepare output file
+            # Step 3: Prepare output file (use system temp when output dir is on network)
             base_path = os.path.dirname(details_file)
             current_date = datetime.now().strftime("%Y-%m-%d")
             base_name = os.path.splitext(os.path.basename(details_file))[0]
             output_file = os.path.join(base_path, f"{base_name}_updated_{current_date}.csv")
+            write_path = output_file
+            if is_network_path(output_file):
+                fd, write_path = tempfile.mkstemp(suffix=".csv", prefix="addcols_stream_", dir=tempfile.gettempdir())
+                os.close(fd)
+                self._emit_progress("Output on network drive – writing to temporary location, then copying result")
             
             # Step 4: Process details file in streaming chunks
-            result = self._stream_process_details(details_file, output_file, lmd_index, 
+            result = self._stream_process_details(details_file, write_path, lmd_index, 
                                               selected_columns, chunk_size)
+            
+            if result and write_path != output_file:
+                try:
+                    shutil.copy2(write_path, output_file)
+                    try:
+                        os.remove(write_path)
+                    except OSError:
+                        pass
+                    self._emit_progress("✓ Result copied to output location")
+                except OSError as e:
+                    logger.warning("Could not copy result to network path: %s", e)
+                    self._emit_progress(f"⚠ Result saved to: {write_path}")
+                result = output_file
             
             # Cleanup temporary index file
             if lmd_index_file and os.path.exists(lmd_index_file):
@@ -290,7 +320,11 @@ class MemoryEfficientAddColumnsProcessor:
                             )
                             .otherwise(
                                 pl.when(pl.col("TestDateUTC").is_not_null())
-                                .then(pl.col("TestDateUTC").str.strptime(pl.Datetime, format="%d/%m/%Y %H:%M:%S%.f", strict=False))
+                                .then(
+                                    pl.when(pl.col("TestDateUTC").str.split(" ").list.first().str.split("/").list.last().str.len_chars() == 2)
+                                    .then(pl.col("TestDateUTC").str.strptime(pl.Datetime, format="%d/%m/%y %H:%M:%S%.f", strict=False))
+                                    .otherwise(pl.col("TestDateUTC").str.strptime(pl.Datetime, format="%d/%m/%Y %H:%M:%S%.f", strict=False))
+                                )
                                 .otherwise(None)
                             )
                             .alias("_timestamp")
@@ -311,7 +345,7 @@ class MemoryEfficientAddColumnsProcessor:
                             matched_chunk = valid_chunk.join_asof(
                                 lmd_index.select(lmd_join_cols),
                                 on='_timestamp',
-                                tolerance='60s'
+                                tolerance=f'{tolerance_seconds}s'
                             )
                         except Exception as join_error:
                             self._emit_progress(f"⚠️ Join failed: {join_error}")
@@ -371,16 +405,18 @@ class MemoryEfficientAddColumnsProcessor:
             return None
     
     def process_add_columns(self, lmd_file_path: str, details_file_path: str,
-                           selected_columns: List[str], chunk_size: int = None) -> Optional[str]:
+                           selected_columns: List[str], chunk_size: int = None,
+                           tolerance_seconds: int = 60) -> Optional[str]:
         """
         Main entry point for memory-efficient add columns processing.
-        
+
         Args:
             lmd_file_path: Path to LMD CSV file
             details_file_path: Path to Combined Details CSV file
             selected_columns: List of columns to add/update
             chunk_size: Number of rows to process per chunk (auto-determined if None)
-        
+            tolerance_seconds: Max time difference (seconds) for timestamp-based join; default 60
+
         Returns:
             Path to output file if successful, None otherwise
         """
@@ -418,17 +454,17 @@ class MemoryEfficientAddColumnsProcessor:
             
             # Process based on strategy
             if strategy == "streaming":
-                return self._process_with_streaming(lmd_file_path, details_file_path, selected_columns, chunk_size)
+                return self._process_with_streaming(lmd_file_path, details_file_path, selected_columns, chunk_size, tolerance_seconds)
             else:
                 # Fallback to original processor for smaller files
                 self._emit_progress("📝 File sizes manageable - using standard processor")
                 try:
                     from .add_columns_processor import AddColumnsProcessor
                     standard_processor = AddColumnsProcessor(self.progress_callback)
-                    return standard_processor.process_add_columns(lmd_file_path, details_file_path, selected_columns, chunk_size)
+                    return standard_processor.process_files(lmd_file_path, details_file_path, selected_columns, chunk_size, tolerance_seconds)
                 except ImportError:
                     self._emit_progress("⚠️ Standard processor not available, using streaming mode")
-                    return self._process_with_streaming(lmd_file_path, details_file_path, selected_columns, chunk_size)
+                    return self._process_with_streaming(lmd_file_path, details_file_path, selected_columns, chunk_size, tolerance_seconds)
                 
         except Exception as e:
             self._emit_progress(f"❌ Processing failed: {e}")

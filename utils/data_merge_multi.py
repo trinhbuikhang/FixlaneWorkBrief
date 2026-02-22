@@ -8,10 +8,14 @@ All columns are kept as strings to preserve original formatting (0011, False, et
 import os
 import sys
 import argparse
+import shutil
+import tempfile
 from pathlib import Path
 from typing import List, Dict, Tuple, Optional
 from datetime import datetime
 import psutil
+
+from utils.path_utils import is_network_path
 
 try:
     import polars as pl
@@ -358,18 +362,32 @@ def combine_csv_files_streaming(
         concat_time = time.time() - concat_start
         log(f"Concatenation completed in {concat_time:.2f}s")
         
-        # Write to output
-        log(f"Writing to {output_file.name}...")
+        # Write to output (use temp file when output is on network to avoid Permission denied)
+        write_path = output_file
+        if is_network_path(str(output_file)):
+            fd, write_path = tempfile.mkstemp(suffix=".csv", prefix="merge_", dir=tempfile.gettempdir())
+            os.close(fd)
+            write_path = Path(write_path)
+            log("Output on network – writing to temp then copying")
+        log(f"Writing to {write_path.name}...")
         write_start = time.time()
         
         if mode == "STREAMING":
             # Collect with streaming for memory efficiency
             df = combined_lf.collect(streaming=True)
-            df.write_csv(output_file, include_header=True, line_terminator='\r\n')
+            df.write_csv(write_path, include_header=True, line_terminator='\r\n')
         else:
             # Collect and write
             df = combined_lf.collect()
-            df.write_csv(output_file, include_header=True, line_terminator='\r\n')
+            df.write_csv(write_path, include_header=True, line_terminator='\r\n')
+        
+        if write_path != output_file:
+            try:
+                shutil.copy2(str(write_path), str(output_file))
+                write_path.unlink(missing_ok=True)
+                log("Result copied to output location")
+            except OSError as e:
+                log(f"Could not copy to output; result left at {write_path}: {e}", "WARNING")
         
         write_time = time.time() - write_start
         log(f"Write completed in {write_time:.2f}s")
