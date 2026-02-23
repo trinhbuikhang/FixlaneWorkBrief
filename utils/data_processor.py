@@ -757,6 +757,8 @@ def _process_memory_safe_ultra_fast(
         dedup_use_sqlite = False
         dedup_conn = None
         testdate_col = "TestDateUTC" if (remove_duplicates and "TestDateUTC" in columns) else None
+        if not remove_duplicates:
+            log_func("  Dedup disabled: writing all filtered rows (no duplicate removal).")
 
         def _switch_to_sqlite():
             """Migrate in-memory set to SQLite for unbounded dedup."""
@@ -1022,6 +1024,8 @@ def _process_memory_safe_standard(
     # Dedup last so it runs on fewer rows (only when enabled)
     if remove_duplicates and "TestDateUTC" in df.columns:
         df = df.unique(subset=["TestDateUTC"], keep="first", maintain_order=True)
+    elif not remove_duplicates:
+        log_func("  Dedup disabled: keeping all filtered rows (no duplicate removal).")
 
     log_func(f"  After filter: {len(df):,} rows (removed {start_rows - len(df):,})", percent=60)
 

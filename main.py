@@ -13,6 +13,8 @@ CRITICAL for Windows/EXE:
 import multiprocessing
 import os
 import sys
+import ctypes
+import tempfile
 
 # ── MUST be the very first thing in __main__ ──
 if __name__ == "__main__":
@@ -101,6 +103,7 @@ if __name__ == "__main__":
 import logging
 
 # ⚡ MINIMAL IMPORTS - Only what's needed for QApplication
+from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QApplication
 
 # Import our logging setup
@@ -117,6 +120,37 @@ except ImportError as e:
 def main():
     # Log every step to startup_crash.log (flush immediately) so it's readable after crash
     _bootstrap_log("main() entered")
+
+    # Handle Windows 11 DPI awareness and network-drive quirks early
+    try:
+        # Enable Qt high DPI attributes when available
+        if hasattr(Qt.ApplicationAttribute, "AA_EnableHighDpiScaling"):
+            QApplication.setAttribute(Qt.ApplicationAttribute.AA_EnableHighDpiScaling, True)
+        if hasattr(Qt.ApplicationAttribute, "AA_UseHighDpiPixmaps"):
+            QApplication.setAttribute(Qt.ApplicationAttribute.AA_UseHighDpiPixmaps, True)
+    except Exception as e:
+        _bootstrap_log("DPI attribute setup failed: " + str(e))
+
+    # Force process DPI awareness via Win32 API (critical for Win11 hit-testing)
+    try:
+        ctypes.windll.shcore.SetProcessDpiAwareness(2)  # PROCESS_PER_MONITOR_DPI_AWARE
+        _bootstrap_log("SetProcessDpiAwareness(2) succeeded")
+    except Exception:
+        try:
+            ctypes.windll.user32.SetProcessDPIAware()
+            _bootstrap_log("SetProcessDPIAware() fallback succeeded")
+        except Exception as dpi_err:
+            _bootstrap_log("DPI awareness APIs unavailable: " + str(dpi_err))
+
+    # If running from a UNC/network path, move CWD to a local temp directory
+    try:
+        exe_path = sys.executable if getattr(sys, "frozen", False) else sys.argv[0]
+        if isinstance(exe_path, str) and exe_path.startswith("\\\\"):
+            new_cwd = tempfile.gettempdir()
+            os.chdir(new_cwd)
+            _bootstrap_log(f"Running from UNC path; changed CWD to local temp: {new_cwd}")
+    except Exception as cwd_err:
+        _bootstrap_log("Failed to adjust CWD for UNC path: " + str(cwd_err))
 
     # Catch native crashes (segfault, SIGABRT...) and write to same log file
     try:

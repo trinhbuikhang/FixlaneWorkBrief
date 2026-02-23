@@ -5,9 +5,8 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from PyQt6.QtCore import QThread, pyqtSignal
+from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtWidgets import (
-    QCheckBox,
     QFileDialog,
     QGroupBox,
     QHBoxLayout,
@@ -32,6 +31,7 @@ from gui.ui_constants import (
 )
 from utils.data_processor import process_data, merge_then_clean_folder
 from utils.security import SecurityValidator, UserFriendlyError
+
 
 # ---------------------------------------------------------------------------
 # File-based progress log so progress can be tracked even when the GUI
@@ -232,6 +232,13 @@ class LMDCleanerTab(QWidget):
         self.processing_active = False
         self.worker = None
         self.initUI()
+
+    def showEvent(self, event):
+        """Ensure options stay usable when tab is shown (fixes frozen exe on second launch)."""
+        super().showEvent(event)
+        if hasattr(self, "remove_duplicates_radio"):
+            self.remove_duplicates_radio.setEnabled(True)
+            self.keep_all_radio.setEnabled(True)
     
     def update_status(self, message):
         """Safely update status label if it exists"""
@@ -309,16 +316,21 @@ class LMDCleanerTab(QWidget):
         files_layout.addLayout(output_layout)
         layout.addWidget(files_group)
 
-        # Remove duplicates option
-        self.remove_duplicates_cb = QCheckBox("Remove duplicates (by TestDateUTC)")
-        self.remove_duplicates_cb.setChecked(True)
-        self.remove_duplicates_cb.setToolTip("When checked, rows with duplicate TestDateUTC are removed (first occurrence kept). Uncheck to keep all rows and only apply filters.")
-        layout.addWidget(self.remove_duplicates_cb)
+        # Duplicate handling (same style as Input Type: GroupBox + radio buttons)
+        dup_group = QGroupBox("Duplicate handling")
+        dup_layout = QHBoxLayout(dup_group)
+        dup_layout.setSpacing(GROUP_SPACING)
 
-        # Skip confirmation (faster repeat runs)
-        self.skip_confirm_cb = QCheckBox("Skip confirmation dialog (this session)")
-        self.skip_confirm_cb.setToolTip("When checked, Process starts immediately without asking to confirm.")
-        layout.addWidget(self.skip_confirm_cb)
+        self.remove_duplicates_radio = QRadioButton("Remove duplicates (by TestDateUTC)")
+        self.remove_duplicates_radio.setChecked(True)
+        self.remove_duplicates_radio.setToolTip("Rows with duplicate TestDateUTC are removed (first occurrence kept).")
+        self.keep_all_radio = QRadioButton("Keep all rows (filter only)")
+        self.keep_all_radio.setToolTip("Keep all rows; only apply filters, no deduplication.")
+
+        dup_layout.addWidget(self.remove_duplicates_radio)
+        dup_layout.addWidget(self.keep_all_radio)
+        dup_layout.addStretch()
+        layout.addWidget(dup_group)
 
         # Process button
         self.process_btn = QPushButton("Process Data")
@@ -487,7 +499,7 @@ class LMDCleanerTab(QWidget):
             return
 
         # Show confirmation dialog
-        remove_duplicates = self.remove_duplicates_cb.isChecked()
+        remove_duplicates = self.remove_duplicates_radio.isChecked()
         if is_folder:
             # Count CSV files in folder
             csv_count = len([f for f in os.listdir(input_path) if f.lower().endswith('.csv')])
@@ -509,15 +521,14 @@ class LMDCleanerTab(QWidget):
                    f"The system will {action} the selected CSV file.\n\n"
                    f"Continue with file processing?")
 
-        if not self.skip_confirm_cb.isChecked():
-            reply = QMessageBox.question(
-                self, "Confirm Processing Mode",
-                msg,
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.Yes
-            )
-            if reply != QMessageBox.StandardButton.Yes:
-                return
+        reply = QMessageBox.question(
+            self, "Confirm Processing Mode",
+            msg,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.Yes
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
 
         self.progress.setValue(0)
         self.log_text.clear()
@@ -529,7 +540,8 @@ class LMDCleanerTab(QWidget):
         self.process_btn.style().unpolish(self.process_btn)
         self.process_btn.style().polish(self.process_btn)
 
-        # Start worker thread to keep UI responsive
+        # Start worker thread to keep UI responsive (read option again at start to avoid stale value)
+        remove_duplicates = self.remove_duplicates_radio.isChecked()
         self.worker = ProcessingWorker(input_path, output_file, is_folder, remove_duplicates=remove_duplicates)
         self.worker.log_message.connect(self._append_log_from_worker)
         self.worker.progress_percent.connect(self.progress.setValue)

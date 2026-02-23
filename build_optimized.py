@@ -99,6 +99,7 @@ def build_optimized_exe():
         '--hidden-import=PyQt6.QtCore',
         '--hidden-import=PyQt6.QtGui',
         '--hidden-import=PyQt6.QtWidgets',
+        '--collect-all', 'PyQt6',
         '--hidden-import=polars',
         '--hidden-import=pandas',           # Lane Fix timestamp parsing
         '--hidden-import=logging.handlers',
@@ -109,8 +110,7 @@ def build_optimized_exe():
         '--hidden-import=shapely.prepared',
         '--hidden-import=shapely.strtree',
         
-        # Optimize
-        '--strip',  # Strip debug symbols
+        # Optimize (no --strip on Windows: strip is a Unix tool, not in PATH -> FileNotFoundError)
         '--noupx',  # Disable UPX (can cause issues)
         
         # Add icon folder as data
